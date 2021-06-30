@@ -1,0 +1,10 @@
+[package]
+name = "log4rs-logstash"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+log4rs = "1"
+log = "0.4"
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
