@@ -1,2 +1,2 @@
 [workspace]
-members = ["log4rs-logstash"]
+members = ["log4rs-logstash", "logstash-rs"]
