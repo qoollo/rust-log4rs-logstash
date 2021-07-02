@@ -17,17 +17,17 @@ impl Event {
         Default::default()
     }
 
-    pub fn with_timestamp(mut self, timestamp: Option<SystemTime>) -> Self {
+    pub fn with_timestamp(&mut self, timestamp: Option<SystemTime>) -> &mut Self {
         self.timestamp = timestamp;
         self
     }
 
-    pub fn with_metadata(mut self, key: &str, value: Value) -> Self {
+    pub fn with_metadata(&mut self, key: &str, value: Value) -> &mut Self {
         self.metadata.insert(format!("@metadata.{}", key), value);
         self
     }
 
-    pub fn with_field(mut self, key: &str, value: Value) -> Self {
+    pub fn with_field(&mut self, key: &str, value: Value) -> &mut Self {
         self.fields.insert(key.into(), value);
         self
     }
