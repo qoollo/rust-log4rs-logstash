@@ -1,11 +1,9 @@
-use crate::error::Error;
-use crate::{event::Event, Sender};
-use anyhow::Result as AnyResult;
+use crate::prelude::*;
 use std::fmt::Write as FMTWrite;
 use std::io::Write as IOWrite;
 use std::net::TcpStream;
 
-struct TcpSender {
+pub struct TcpSender {
     hostname: String,
     port: u16,
     stream: Option<TcpStream>,
@@ -20,13 +18,13 @@ impl TcpSender {
         }
     }
 
-    fn send_raw_data(&mut self, data: &[u8]) -> AnyResult<()> {
+    fn send_raw_data(&mut self, data: &[u8]) -> Result<()> {
         let stream = self.get_stream()?;
         stream.write_all(data)?;
         Ok(())
     }
 
-    fn get_stream(&mut self) -> AnyResult<&mut TcpStream> {
+    fn get_stream(&mut self) -> Result<&mut TcpStream> {
         if self.stream.is_none() {
             let stream = TcpStream::connect((self.hostname.as_str(), self.port))?;
             self.stream = Some(stream);
@@ -36,14 +34,14 @@ impl TcpSender {
 }
 
 impl Sender for TcpSender {
-    fn send(&mut self, event: &Event) -> AnyResult<()> {
+    fn send(&mut self, event: &Event) -> Result<()> {
         let mut event = serde_json::to_string(event)?;
         event.write_char('\n')?;
         self.send_raw_data(event.as_bytes())?;
         Ok(())
     }
 
-    fn send_batch(&mut self, events: &[Event]) -> AnyResult<()> {
+    fn send_batch(&mut self, events: &[Event]) -> Result<()> {
         if events.is_empty() {
             return Ok(());
         }
@@ -51,6 +49,13 @@ impl Sender for TcpSender {
         for event in events {
             serde_json::to_writer(&mut buf, event)?;
             buf.push('\n' as u8);
+        }
+        Ok(())
+    }
+
+    fn flush(&mut self) -> Result<()> {
+        if let Some(stream) = self.stream.as_mut() {
+            stream.flush()?;
         }
         Ok(())
     }
