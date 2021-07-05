@@ -3,6 +3,7 @@ use std::fmt::Write as FMTWrite;
 use std::io::Write as IOWrite;
 use std::net::TcpStream;
 
+#[derive(Debug)]
 pub struct TcpSender {
     hostname: String,
     port: u16,

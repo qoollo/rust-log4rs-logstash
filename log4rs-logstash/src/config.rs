@@ -35,9 +35,10 @@ impl Deserialize for AppenderDeserializer {
             .with_buffer_size(config.buffer_size)
             .with_buffer_lifetime(config.buffer_lifetime)
             .with_write_timeout(config.write_timeout)
-            .with_connection_timeout(config.connection_timeout);
+            .with_connection_timeout(config.connection_timeout)
+            .build()?;
 
-        Ok(Box::new(appender.build()?))
+        Ok(Box::new(appender))
     }
 }
 

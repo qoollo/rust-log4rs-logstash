@@ -1,5 +1,6 @@
 use crate::prelude::*;
 
+#[derive(Debug)]
 pub struct BufferedSender<S: Sender> {
     sender: S,
     buffer: Vec<Event>,
