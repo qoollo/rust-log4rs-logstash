@@ -1,0 +1,18 @@
+refresh_rate: 30 seconds
+appenders:
+  stdout:
+    kind: console
+    encoder:
+      pattern: "{d(%Y-%m-%d %H:%M:%S):<20} {M:>20.30}:{L:>3} {h({l})}    {m}\n"
+  logstash:
+    kind: logstash
+    hostname: localhost
+    port: 5055
+    encoder:
+      pattern: "{d(%Y-%m-%d %H:%M:%S):<20} {M:>20.30}:{L:>3} {h({l})}    {m}\n"
+
+root:
+  level: debug
+  appenders:
+    - stdout
+    - logstash

@@ -2,8 +2,11 @@ use anyhow::Result as AnyResult;
 use log::Level as LogLevel;
 use log::Record;
 use log4rs::append::Append;
+use logstash_rs::Event;
 use logstash_rs::Sender;
 use logstash_rs::{BufferedTCPSender, TcpSender};
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Duration;
 
 #[derive(Debug)]
@@ -11,12 +14,12 @@ pub struct Appender<S>
 where
     S: Sender + Sync + Send + std::fmt::Debug + 'static,
 {
-    sender: S,
+    sender: Arc<Mutex<S>>,
 }
 
 #[derive(Debug)]
 pub struct AppenderBuilder {
-    level: LogLevel,
+    level: Option<LogLevel>,
     hostname: String,
     port: u16,
     buffer_size: Option<usize>,
@@ -28,7 +31,7 @@ pub struct AppenderBuilder {
 impl Default for AppenderBuilder {
     fn default() -> AppenderBuilder {
         AppenderBuilder {
-            level: LogLevel::Warn,
+            level: None,
             hostname: "127.0.0.1".to_string(),
             port: 5044,
             buffer_size: Some(1024),
@@ -41,7 +44,7 @@ impl Default for AppenderBuilder {
 
 impl AppenderBuilder {
     /// Sets threshold for this logger to level.
-    pub fn with_level(&mut self, level: LogLevel) -> &mut AppenderBuilder {
+    pub fn with_level(&mut self, level: Option<LogLevel>) -> &mut AppenderBuilder {
         self.level = level;
         self
     }
@@ -89,10 +92,10 @@ impl AppenderBuilder {
     /// Invoke the builder and return a [`Appender`](struct.Appender.html).
     pub fn build(&self) -> AnyResult<Appender<BufferedTCPSender>> {
         Ok(Appender {
-            sender: BufferedTCPSender::new(
+            sender: Arc::new(Mutex::new(BufferedTCPSender::new(
                 TcpSender::new(self.hostname.clone(), self.port),
                 self.buffer_size,
-            ),
+            ))),
         })
     }
 }
@@ -110,7 +113,25 @@ impl<S> Append for Appender<S>
 where
     S: Sender + Sync + Send + std::fmt::Debug + 'static,
 {
-    fn append(&self, _record: &Record) -> AnyResult<()> {
+    fn append(&self, record: &Record) -> AnyResult<()> {
+        eprintln!("Append: {:?}", record);
+        let mut event = Event::new_with_time_now();
+        if let Some(path) = record.module_path() {
+            event.with_field("module_path", path.into());
+        }
+        if let Some(file) = record.file() {
+            event.with_field("file", file.into());
+        }
+        if let Some(line) = record.line() {
+            event.with_field("line", line.into());
+        }
+        event.with_field("message", record.args().to_string().into());
+        let mut sender = self
+            .sender
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Mutex lock failed"))?;
+        eprintln!("Send: {:?}", event);
+        sender.send(&event)?;
         Ok(())
     }
     fn flush(&self) {}

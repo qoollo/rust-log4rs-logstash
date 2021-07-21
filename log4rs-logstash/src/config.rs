@@ -10,7 +10,7 @@ struct AppenderDeserializer;
 
 #[derive(Debug, serde::Deserialize)]
 pub struct AppenderConfig {
-    level: LogLevel,
+    level: Option<LogLevel>,
     hostname: String,
     port: u16,
     buffer_size: Option<usize>,
