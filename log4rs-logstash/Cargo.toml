@@ -9,3 +9,6 @@ log = "0.4"
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }
 logstash-rs = { path = "../logstash-rs" }
+
+[dev-dependencies]
+signal-hook = "0.3"

@@ -107,6 +107,15 @@ where
     pub fn builder() -> AppenderBuilder {
         AppenderBuilder::default()
     }
+
+    fn try_flush(&self) -> AnyResult<()> {
+        let mut lock = self
+            .sender
+            .try_lock()
+            .map_err(|err| anyhow::anyhow!(format!("{}", err)))?;
+        lock.flush()?;
+        Ok(())
+    }
 }
 
 impl<S> Append for Appender<S>
@@ -114,25 +123,30 @@ where
     S: Sender + Sync + Send + std::fmt::Debug + 'static,
 {
     fn append(&self, record: &Record) -> AnyResult<()> {
-        eprintln!("Append: {:?}", record);
         let mut event = Event::new_with_time_now();
         if let Some(path) = record.module_path() {
-            event.with_field("module_path", path.into());
+            event.set_field("module_path", path.into());
         }
         if let Some(file) = record.file() {
-            event.with_field("file", file.into());
+            event.set_field("file", file.into());
         }
         if let Some(line) = record.line() {
-            event.with_field("line", line.into());
+            event.set_field("line", line.into());
         }
-        event.with_field("message", record.args().to_string().into());
+        event.set_field("message", record.args().to_string().into());
         let mut sender = self
             .sender
             .lock()
             .map_err(|_| anyhow::anyhow!("Mutex lock failed"))?;
-        eprintln!("Send: {:?}", event);
         sender.send(&event)?;
         Ok(())
     }
-    fn flush(&self) {}
+    fn flush(&self) {
+        match self.try_flush() {
+            Err(err) => {
+                println!("Logstash appender failed to flush: {}", err);
+            }
+            _ => {}
+        }
+    }
 }

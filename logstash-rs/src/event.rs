@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Local, Utc};
 use serde::Serialize;
 use serde_json::Value;
 use std::{collections::HashMap, time::SystemTime};
@@ -26,20 +26,17 @@ impl Event {
         }
     }
 
-    pub fn with_timestamp(&mut self, timestamp: Option<SystemTime>) -> &mut Self {
-        self.timestamp = match timestamp {
-            Some(timestamp) => Some(timestamp.into()),
-            None => None,
-        };
+    pub fn set_timestamp(&mut self, timestamp: Option<SystemTime>) -> &mut Self {
+        self.timestamp = timestamp.map(|t| t.into());
         self
     }
 
-    pub fn with_metadata(&mut self, key: &str, value: Value) -> &mut Self {
+    pub fn set_metadata(&mut self, key: &str, value: Value) -> &mut Self {
         self.metadata.insert(format!("@metadata.{}", key), value);
         self
     }
 
-    pub fn with_field(&mut self, key: &str, value: Value) -> &mut Self {
+    pub fn set_field(&mut self, key: &str, value: Value) -> &mut Self {
         self.fields.insert(key.into(), value);
         self
     }

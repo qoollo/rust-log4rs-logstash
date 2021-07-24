@@ -8,9 +8,7 @@ appenders:
     kind: logstash
     hostname: localhost
     port: 5055
-    encoder:
-      pattern: "{d(%Y-%m-%d %H:%M:%S):<20} {M:>20.30}:{L:>3} {h({l})}    {m}\n"
-
+    buffer_size: 10
 root:
   level: debug
   appenders:

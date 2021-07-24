@@ -30,7 +30,7 @@ impl TcpSender {
             let stream = TcpStream::connect((self.hostname.as_str(), self.port))?;
             self.stream = Some(stream);
         }
-        self.stream.as_mut().ok_or_else(|| Error::Unknown.into())
+        Ok(self.stream.as_mut().expect("Should be Some"))
     }
 }
 
@@ -51,6 +51,7 @@ impl Sender for TcpSender {
             serde_json::to_writer(&mut buf, event)?;
             buf.push('\n' as u8);
         }
+        self.send_raw_data(&buf)?;
         Ok(())
     }
 
