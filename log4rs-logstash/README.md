@@ -22,4 +22,6 @@ fn main() {
 }
 ```
 
-`basic.rs` example provides example of program exit handling.
+[`examples/basic.rs`](examples/basic.rs) provides example of program with exit handling.
+
+[`examples/basic_config.yaml`](examples/basic_config.yaml) example of config file with logstash appender.
