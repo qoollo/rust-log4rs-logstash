@@ -2,19 +2,22 @@ use anyhow::Result as AnyResult;
 use log::Level as LogLevel;
 use log::Record;
 use log4rs::append::Append;
-use logstash_rs::Event;
+use logstash_rs::LogStashRecord;
 use logstash_rs::Sender;
-use logstash_rs::{BufferedTCPSender, TcpSender};
-use std::sync::Arc;
-use std::sync::Mutex;
+use logstash_rs::{BufferedSender, TcpSender};
 use std::time::Duration;
 
-#[derive(Debug)]
 pub struct Appender<S>
 where
-    S: Sender + Sync + Send + std::fmt::Debug + 'static,
+    S: Sender,
 {
-    sender: Arc<Mutex<S>>,
+    sender: S,
+}
+
+impl<S: Sender> std::fmt::Debug for Appender<S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}::Appender", module_path!())
+    }
 }
 
 #[derive(Debug)]
@@ -26,6 +29,7 @@ pub struct AppenderBuilder {
     buffer_lifetime: Option<Duration>,
     write_timeout: Option<Duration>,
     connection_timeout: Option<Duration>,
+    use_tls: bool,
 }
 
 impl Default for AppenderBuilder {
@@ -38,6 +42,7 @@ impl Default for AppenderBuilder {
             buffer_lifetime: Some(Duration::from_secs(1)),
             write_timeout: Some(Duration::from_secs(10)),
             connection_timeout: Some(Duration::from_secs(10)),
+            use_tls: false,
         }
     }
 }
@@ -89,56 +94,44 @@ impl AppenderBuilder {
         self
     }
 
+    /// Sets the timeout for network connections.
+    pub fn with_use_tls(&mut self, use_tls: bool) -> &mut AppenderBuilder {
+        self.use_tls = use_tls;
+        self
+    }
+
     /// Invoke the builder and return a [`Appender`](struct.Appender.html).
-    pub fn build(&self) -> AnyResult<Appender<BufferedTCPSender>> {
+    pub fn build(&self) -> AnyResult<Appender<BufferedSender>> {
         Ok(Appender {
-            sender: Arc::new(Mutex::new(BufferedTCPSender::new(
-                TcpSender::new(self.hostname.clone(), self.port),
+            sender: BufferedSender::new(
+                TcpSender::new(self.hostname.clone(), self.port, self.use_tls),
                 self.buffer_size,
-            ))),
+                self.buffer_lifetime,
+            ),
         })
     }
 }
 
 impl<S> Appender<S>
 where
-    S: Sender + Sync + Send + std::fmt::Debug + 'static,
+    S: Sender + Sync + Send + 'static,
 {
     pub fn builder() -> AppenderBuilder {
         AppenderBuilder::default()
     }
 
     fn try_flush(&self) -> AnyResult<()> {
-        let mut lock = self
-            .sender
-            .try_lock()
-            .map_err(|err| anyhow::anyhow!(format!("{}", err)))?;
-        lock.flush()?;
+        self.sender.flush()?;
         Ok(())
     }
 }
 
 impl<S> Append for Appender<S>
 where
-    S: Sender + Sync + Send + std::fmt::Debug + 'static,
+    S: Sender + Sync + Send + 'static,
 {
     fn append(&self, record: &Record) -> AnyResult<()> {
-        let mut event = Event::new_with_time_now();
-        if let Some(path) = record.module_path() {
-            event.set_field("module_path", path.into());
-        }
-        if let Some(file) = record.file() {
-            event.set_field("file", file.into());
-        }
-        if let Some(line) = record.line() {
-            event.set_field("line", line.into());
-        }
-        event.set_field("message", record.args().to_string().into());
-        let mut sender = self
-            .sender
-            .lock()
-            .map_err(|_| anyhow::anyhow!("Mutex lock failed"))?;
-        sender.send(&event)?;
+        self.sender.send(LogStashRecord::from_record(record))?;
         Ok(())
     }
     fn flush(&self) {

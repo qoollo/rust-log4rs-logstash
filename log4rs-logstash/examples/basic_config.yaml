@@ -8,7 +8,8 @@ appenders:
     kind: logstash
     hostname: localhost
     port: 5055
-    buffer_size: 10
+    buffer_size: 100
+    buffer_lifetime: 1s
 root:
   level: debug
   appenders:

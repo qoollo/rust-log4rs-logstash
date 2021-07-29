@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use anyhow::Result as AnyResult;
 use log4rs::init_file;
 use signal_hook::{
@@ -14,8 +16,14 @@ fn try_main() -> AnyResult<()> {
     init_logger()?;
     spawn_signal_handler()?;
 
-    log::logger().flush();
-    Ok(())
+    loop {
+        std::thread::sleep(Duration::from_secs(1));
+        log::debug!("Debug");
+        log::trace!("Trace");
+        log::info!("Info");
+        log::warn!("Warn");
+        log::error!("Error");
+    }
 }
 
 fn init_logger() -> AnyResult<()> {

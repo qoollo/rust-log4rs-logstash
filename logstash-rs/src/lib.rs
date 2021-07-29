@@ -4,16 +4,14 @@ pub mod event;
 pub mod output;
 pub mod result;
 pub use buffer::BufferedSender;
-pub use event::Event;
+pub use event::LogStashRecord;
 pub use output::tcp::TcpSender;
 pub use result::Result;
 
-pub type BufferedTCPSender = BufferedSender<TcpSender>;
-
-pub trait Sender {
-    fn send(&mut self, event: &Event) -> Result<()>;
-    fn send_batch(&mut self, events: &[Event]) -> Result<()>;
-    fn flush(&mut self) -> Result<()>;
+pub trait Sender: Sync + Send + 'static {
+    fn send(&self, event: LogStashRecord) -> Result<()>;
+    fn send_batch(&self, events: Vec<LogStashRecord>) -> Result<()>;
+    fn flush(&self) -> Result<()>;
 }
 
 mod prelude {

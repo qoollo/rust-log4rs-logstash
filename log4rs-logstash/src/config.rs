@@ -14,9 +14,16 @@ pub struct AppenderConfig {
     hostname: String,
     port: u16,
     buffer_size: Option<usize>,
+    #[serde(default)]
+    #[serde(with = "humantime_serde")]
     buffer_lifetime: Option<Duration>,
+    #[serde(default)]
+    #[serde(with = "humantime_serde")]
     write_timeout: Option<Duration>,
+    #[serde(default)]
+    #[serde(with = "humantime_serde")]
     connection_timeout: Option<Duration>,
+    use_tls: Option<bool>,
 }
 
 impl Deserialize for AppenderDeserializer {
@@ -36,6 +43,7 @@ impl Deserialize for AppenderDeserializer {
             .with_buffer_lifetime(config.buffer_lifetime)
             .with_write_timeout(config.write_timeout)
             .with_connection_timeout(config.connection_timeout)
+            .with_use_tls(config.use_tls.unwrap_or(false))
             .build()?;
 
         Ok(Box::new(appender))
