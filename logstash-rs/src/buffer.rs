@@ -29,21 +29,21 @@ impl Sender for BufferedSender {
     fn send(&self, event: LogStashRecord) -> Result<()> {
         self.sender
             .send(Command::Send(event))
-            .map_err(|_| anyhow::anyhow!("Failed to send record to channel"))?;
+            .map_err(|_| Error::send_to_channel("record"))?;
         Ok(())
     }
 
     fn send_batch(&self, events: Vec<LogStashRecord>) -> Result<()> {
         self.sender
             .send(Command::SendBatch(events))
-            .map_err(|_| anyhow::anyhow!("Failed to send record to channel"))?;
+            .map_err(|_| Error::send_to_channel("batch"))?;
         Ok(())
     }
 
     fn flush(&self) -> Result<()> {
         self.sender
             .send(Command::Flush)
-            .map_err(|_| anyhow::anyhow!("Failed to send record to channel"))?;
+            .map_err(|_| Error::send_to_channel("flush command"))?;
         Ok(())
     }
 }
@@ -54,6 +54,7 @@ struct BufferedSenderThread<S: Sender> {
     buffer: Vec<LogStashRecord>,
     buffer_size: Option<usize>,
     buffer_lifetime: Option<Duration>,
+    deadline: Option<Instant>,
 }
 
 impl<S: Sender> BufferedSenderThread<S> {
@@ -67,6 +68,7 @@ impl<S: Sender> BufferedSenderThread<S> {
             buffer: Vec::with_capacity(buffer_size.unwrap_or(0)),
             buffer_size,
             buffer_lifetime,
+            deadline: None,
         }
     }
 
@@ -76,36 +78,34 @@ impl<S: Sender> BufferedSenderThread<S> {
         sender
     }
 
-    fn run_thread(mut self, reciever: mpsc::Receiver<Command>) {
-        std::thread::spawn(move || {
-            let mut deadline: Option<Instant> = None;
-            loop {
-                let cmd = match deadline {
-                    Some(deadline) => {
-                        reciever.recv_timeout(deadline.saturating_duration_since(Instant::now()))
-                    }
-                    None => reciever
-                        .recv()
-                        .map_err(|_| mpsc::RecvTimeoutError::Disconnected),
-                };
+    fn find_next_deadline(&self) -> Option<Instant> {
+        if self.buffer.is_empty() && self.buffer_size.is_some() {
+            if let Some(lifetime) = self.buffer_lifetime {
+                return Some(Instant::now() + lifetime);
+            }
+        }
+        None
+    }
 
-                match (&cmd, self.buffer_lifetime) {
-                    (Ok(Command::SendBatch(_) | Command::Send(_)), Some(lifetime))
-                        if self.buffer.is_empty() && self.buffer_size.is_some() =>
-                    {
-                        deadline = Some(Instant::now() + lifetime);
-                    }
-                    _ => {}
+    fn run_thread(mut self, reciever: mpsc::Receiver<Command>) {
+        std::thread::spawn(move || loop {
+            let cmd = match self.deadline {
+                Some(deadline) => {
+                    reciever.recv_timeout(deadline.saturating_duration_since(Instant::now()))
                 }
-                match cmd {
-                    Ok(Command::Flush) | Err(mpsc::RecvTimeoutError::Timeout) => {
-                        self.flush();
-                        deadline = None;
-                    }
-                    Ok(Command::Send(event)) => self.send(event),
-                    Ok(Command::SendBatch(events)) => self.send_batch(events),
-                    Err(mpsc::RecvTimeoutError::Disconnected) => break,
-                }
+                None => reciever
+                    .recv()
+                    .map_err(|_| mpsc::RecvTimeoutError::Disconnected),
+            };
+
+            if let Ok(Command::SendBatch(_) | Command::Send(_)) = &cmd {
+                self.deadline = self.find_next_deadline();
+            }
+            match cmd {
+                Ok(Command::Flush) | Err(mpsc::RecvTimeoutError::Timeout) => self.flush(),
+                Ok(Command::Send(event)) => self.send(event),
+                Ok(Command::SendBatch(events)) => self.send_batch(events),
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
             }
         });
     }
@@ -129,10 +129,14 @@ impl<S: Sender> BufferedSenderThread<S> {
 
     fn flush(&mut self) {
         if !self.buffer.is_empty() {
-            let buffer = std::mem::replace(&mut self.buffer, vec![]);
+            let buffer = std::mem::replace(
+                &mut self.buffer,
+                Vec::with_capacity(self.buffer_size.unwrap_or_default()),
+            );
             let _ = self.sender.send_batch(buffer);
         }
         let _ = self.sender.flush();
+        self.deadline = None;
     }
 }
 

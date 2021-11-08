@@ -4,11 +4,13 @@ use std::io::Write as IOWrite;
 use std::net::TcpStream;
 use std::sync::Mutex;
 
+type Stream = Box<dyn IOWrite + Sync + Send>;
+
 pub(crate) struct AdvancedTcpStream {
     hostname: String,
     port: u16,
     use_tls: bool,
-    stream: Mutex<Option<Box<dyn IOWrite + Sync + Send>>>,
+    stream: Mutex<Option<Stream>>,
 }
 
 impl AdvancedTcpStream {
@@ -22,22 +24,18 @@ impl AdvancedTcpStream {
     }
 
     pub(crate) fn send_bytes(&self, bytes: &[u8]) -> Result<()> {
-        self.recreate_stream_if_needed()?;
         let mut stream = self
             .stream
             .try_lock()
-            .map_err(|_| anyhow::anyhow!("Failed to lock stream mutex"))?;
+            .map_err(|_| Error::lock_stream_mutex())?;
+        self.recreate_stream_if_needed(&mut stream)?;
         if let Some(stream) = stream.as_deref_mut() {
             stream.write_all(bytes)?;
         }
         Ok(())
     }
 
-    fn recreate_stream_if_needed(&self) -> Result<()> {
-        let mut stream = self
-            .stream
-            .try_lock()
-            .map_err(|_| anyhow::anyhow!("Failed to lock stream mutex"))?;
+    fn recreate_stream_if_needed(&self, stream: &mut Option<Stream>) -> Result<()> {
         if stream.is_none() {
             *stream = Some(match self.use_tls {
                 true => Box::new(self.create_connection()?),
@@ -59,7 +57,7 @@ impl AdvancedTcpStream {
         let mut stream = self
             .stream
             .try_lock()
-            .map_err(|_| anyhow::anyhow!("Failed to lock stream mutex"))?;
+            .map_err(|_| Error::lock_stream_mutex())?;
         if let Some(stream) = stream.as_deref_mut() {
             stream.flush()?;
         }

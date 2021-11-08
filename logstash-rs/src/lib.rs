@@ -2,11 +2,10 @@ pub mod buffer;
 pub mod error;
 pub mod event;
 pub mod output;
-pub mod result;
+pub use anyhow::Result;
 pub use buffer::BufferedSender;
 pub use event::LogStashRecord;
 pub use output::tcp::TcpSender;
-pub use result::Result;
 
 pub trait Sender: Sync + Send + 'static {
     fn send(&self, event: LogStashRecord) -> Result<()>;

@@ -7,7 +7,7 @@ use std::{collections::HashMap, time::SystemTime};
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct LogStashRecord {
     #[serde(rename = "@timestamp")]
-    #[serde(with = "my_date_format")]
+    #[serde(with = "logstash_date_format")]
     timestamp: Option<DateTime<Utc>>,
     module: Option<String>,
     file: Option<String>,
@@ -32,19 +32,13 @@ impl LogStashRecord {
 
     pub fn from_record(record: &log::Record) -> Self {
         let mut event = LogStashRecord::new_with_time_now();
-        if let Some(path) = record.module_path() {
-            event.module = Some(path.into());
-        }
-        if let Some(file) = record.file() {
-            event.file = Some(file.into());
-        }
-        if let Some(line) = record.line() {
-            event.line = Some(line);
-        }
         let meta = record.metadata();
+
+        event.module = record.module_path().map(|p| p.into());
+        event.file = record.file().map(|p| p.into());
+        event.line = record.line();
         event.level = Some(meta.level());
         event.target = meta.target().into();
-        event.add_data("level", record.level().to_string().into());
         event.add_data("message", record.args().to_string().into());
         event
     }
@@ -65,7 +59,7 @@ impl LogStashRecord {
     }
 }
 
-mod my_date_format {
+mod logstash_date_format {
     use chrono::{DateTime, Utc};
     use serde::{self, Serializer};
 
