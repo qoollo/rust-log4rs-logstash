@@ -73,27 +73,25 @@ impl<S: Sender> BufferedSenderThread<S> {
     }
 
     fn run(self) -> mpsc::SyncSender<Command> {
-        let (sender, reciever) = mpsc::sync_channel(1);
-        self.run_thread(reciever);
+        let (sender, receiver) = mpsc::sync_channel(1);
+        self.run_thread(receiver);
         sender
     }
 
     fn find_next_deadline(&self) -> Option<Instant> {
         if self.buffer.is_empty() && self.buffer_size.is_some() {
-            if let Some(lifetime) = self.buffer_lifetime {
-                return Some(Instant::now() + lifetime);
-            }
+            return self.buffer_lifetime.map(|lt| Instant::now() + lt);
         }
         None
     }
 
-    fn run_thread(mut self, reciever: mpsc::Receiver<Command>) {
+    fn run_thread(mut self, receiver: mpsc::Receiver<Command>) {
         std::thread::spawn(move || loop {
             let cmd = match self.deadline {
                 Some(deadline) => {
-                    reciever.recv_timeout(deadline.saturating_duration_since(Instant::now()))
+                    receiver.recv_timeout(deadline.saturating_duration_since(Instant::now()))
                 }
-                None => reciever
+                None => receiver
                     .recv()
                     .map_err(|_| mpsc::RecvTimeoutError::Disconnected),
             };
