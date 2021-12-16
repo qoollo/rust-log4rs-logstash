@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate log;
+
 use std::time::Duration;
 
 use anyhow::Result as AnyResult;
@@ -8,21 +11,17 @@ use signal_hook::{
     low_level::exit,
 };
 
-fn main() {
-    try_main().unwrap();
-}
-
-fn try_main() -> AnyResult<()> {
+fn main() -> AnyResult<()> {
     init_logger()?;
     spawn_signal_handler()?;
 
     loop {
         std::thread::sleep(Duration::from_secs(1));
-        log::debug!("Debug");
-        log::trace!("Trace");
-        log::info!("Info");
-        log::warn!("Warn");
-        log::error!("Error");
+        debug!("Debug");
+        trace!("Trace");
+        info!("Info");
+        warn!("Warn");
+        error!("Error");
     }
 }
 

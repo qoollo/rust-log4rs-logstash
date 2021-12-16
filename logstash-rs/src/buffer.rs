@@ -1,3 +1,5 @@
+use log::Level;
+
 use crate::prelude::*;
 use std::{
     sync::mpsc,
@@ -19,8 +21,10 @@ impl BufferedSender {
         sender: S,
         buffer_size: Option<usize>,
         buffer_lifetime: Option<Duration>,
+        ignore_buffer: Level,
     ) -> Self {
-        let sender = BufferedSenderThread::new(sender, buffer_size, buffer_lifetime).run();
+        let sender =
+            BufferedSenderThread::new(sender, buffer_size, buffer_lifetime, ignore_buffer).run();
         Self { sender }
     }
 }
@@ -55,10 +59,16 @@ struct BufferedSenderThread<S: Sender> {
     buffer_size: Option<usize>,
     buffer_lifetime: Option<Duration>,
     deadline: Option<Instant>,
+    ignore_buffer: Level,
 }
 
 impl<S: Sender> BufferedSenderThread<S> {
-    fn new(sender: S, buffer_size: Option<usize>, buffer_lifetime: Option<Duration>) -> Self {
+    fn new(
+        sender: S,
+        buffer_size: Option<usize>,
+        buffer_lifetime: Option<Duration>,
+        ignore_buffer: Level,
+    ) -> Self {
         let buffer_size = match buffer_size {
             Some(s) if s < 2 => None,
             x => x,
@@ -69,6 +79,7 @@ impl<S: Sender> BufferedSenderThread<S> {
             buffer_size,
             buffer_lifetime,
             deadline: None,
+            ignore_buffer,
         }
     }
 
@@ -109,7 +120,9 @@ impl<S: Sender> BufferedSenderThread<S> {
     }
 
     fn send(&mut self, event: LogStashRecord) {
-        if let Some(max_size) = self.buffer_size {
+        if event.level >= self.ignore_buffer {
+            let _ = self.sender.send(event);
+        } else if let Some(max_size) = self.buffer_size {
             self.buffer.push(event);
             if self.buffer.len() >= max_size {
                 self.flush();

@@ -22,20 +22,21 @@ impl<S: Sender> std::fmt::Debug for Appender<S> {
 
 #[derive(Debug)]
 pub struct AppenderBuilder {
-    level: Option<LogLevel>,
+    level: LogLevel,
     hostname: String,
     port: u16,
     buffer_size: Option<usize>,
     buffer_lifetime: Option<Duration>,
     write_timeout: Option<Duration>,
     connection_timeout: Option<Duration>,
+    ignore_buffer: LogLevel,
     use_tls: bool,
 }
 
 impl Default for AppenderBuilder {
     fn default() -> AppenderBuilder {
         AppenderBuilder {
-            level: None,
+            level: LogLevel::Warn,
             hostname: "127.0.0.1".to_string(),
             port: 5044,
             buffer_size: Some(1024),
@@ -43,20 +44,27 @@ impl Default for AppenderBuilder {
             write_timeout: Some(Duration::from_secs(10)),
             connection_timeout: Some(Duration::from_secs(10)),
             use_tls: false,
+            ignore_buffer: LogLevel::Error,
         }
     }
 }
 
 impl AppenderBuilder {
     /// Sets threshold for this logger to level.
-    pub fn with_level(&mut self, level: Option<LogLevel>) -> &mut AppenderBuilder {
+    pub fn with_level(&mut self, level: LogLevel) -> &mut AppenderBuilder {
         self.level = level;
         self
     }
 
+    /// Sets threshold for this logger to level.
+    pub fn with_ignore_buffer_level(&mut self, level: LogLevel) -> &mut AppenderBuilder {
+        self.ignore_buffer = level;
+        self
+    }
+
     /// Sets the hostname of the remote server.
-    pub fn with_hostname(&mut self, hostname: &str) -> &mut AppenderBuilder {
-        self.hostname = hostname.to_string();
+    pub fn with_hostname(&mut self, hostname: impl Into<String>) -> &mut AppenderBuilder {
+        self.hostname = hostname.into();
         self
     }
 
@@ -68,29 +76,26 @@ impl AppenderBuilder {
 
     /// Sets the upperbound limit on the number of records that can be placed in the buffer, once
     /// this size has been reached, the buffer will be sent to the remote server.
-    pub fn with_buffer_size(&mut self, buffer_size: Option<usize>) -> &mut AppenderBuilder {
-        self.buffer_size = buffer_size;
+    pub fn with_buffer_size(&mut self, buffer_size: usize) -> &mut AppenderBuilder {
+        self.buffer_size = Some(buffer_size);
         self
     }
 
     /// Sets the maximum lifetime of the buffer before send it to the remote server.
-    pub fn with_buffer_lifetime(
-        &mut self,
-        buffer_duration: Option<Duration>,
-    ) -> &mut AppenderBuilder {
-        self.buffer_lifetime = buffer_duration;
+    pub fn with_buffer_lifetime(&mut self, buffer_duration: Duration) -> &mut AppenderBuilder {
+        self.buffer_lifetime = Some(buffer_duration);
         self
     }
 
     /// Sets the timemout for write operation.
-    pub fn with_write_timeout(&mut self, timeout: Option<Duration>) -> &mut AppenderBuilder {
-        self.write_timeout = timeout;
+    pub fn with_write_timeout(&mut self, timeout: Duration) -> &mut AppenderBuilder {
+        self.write_timeout = Some(timeout);
         self
     }
 
     /// Sets the timeout for network connections.
-    pub fn with_connection_timeout(&mut self, timeout: Option<Duration>) -> &mut AppenderBuilder {
-        self.connection_timeout = timeout;
+    pub fn with_connection_timeout(&mut self, timeout: Duration) -> &mut AppenderBuilder {
+        self.connection_timeout = Some(timeout);
         self
     }
 
@@ -107,6 +112,7 @@ impl AppenderBuilder {
                 TcpSender::new(self.hostname.clone(), self.port, self.use_tls),
                 self.buffer_size,
                 self.buffer_lifetime,
+                self.ignore_buffer,
             ),
         })
     }
@@ -135,11 +141,8 @@ where
         Ok(())
     }
     fn flush(&self) {
-        match self.try_flush() {
-            Err(err) => {
-                println!("Logstash appender failed to flush: {}", err);
-            }
-            _ => {}
+        if let Err(err) = self.try_flush() {
+            eprintln!("Logstash appender failed to flush: {}", err);
         }
     }
 }

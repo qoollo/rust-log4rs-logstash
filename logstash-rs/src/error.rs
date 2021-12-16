@@ -2,9 +2,9 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("failed to send {0} to channel")]
+    #[error("fatal: failed to send {0} to channel")]
     SendToChannel(String),
-    #[error("failed to lock stream mutex")]
+    #[error("fatal: failed to lock stream mutex")]
     LockStreamMutex,
 }
 

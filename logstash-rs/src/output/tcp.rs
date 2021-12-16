@@ -29,28 +29,73 @@ impl AdvancedTcpStream {
             .try_lock()
             .map_err(|_| Error::lock_stream_mutex())?;
         self.recreate_stream_if_needed(&mut stream)?;
-        if let Some(stream) = stream.as_deref_mut() {
-            stream.write_all(bytes)?;
+        if let Some(Err(err)) = stream.as_mut().map(|stream| stream.write_all(bytes)) {
+            *stream = None;
+            return Err(err.into());
         }
         Ok(())
     }
 
     fn recreate_stream_if_needed(&self, stream: &mut Option<Stream>) -> Result<()> {
         if stream.is_none() {
-            *stream = Some(match self.use_tls {
-                true => Box::new(self.create_connection()?),
-                false => Box::new(self.create_tls_connection()?),
+            *stream = Some(if self.use_tls {
+                self.create_connection()?
+            } else {
+                self.create_tls_connection()?
             });
         }
         Ok(())
     }
 
-    fn create_connection(&self) -> Result<TcpStream> {
-        Ok(TcpStream::connect((self.hostname.as_str(), self.port))?)
+    fn create_connection(&self) -> Result<Stream> {
+        Ok(Box::new(TcpStream::connect((
+            self.hostname.as_str(),
+            self.port,
+        ))?))
     }
 
-    fn create_tls_connection(&self) -> Result<TcpStream> {
-        Ok(TcpStream::connect((self.hostname.as_str(), self.port))?)
+    #[cfg(all(feature = "tls", feature = "rustls"))]
+    fn create_tls_connection(&self) -> Result<Stream> {
+        compile_error!("Select one of 'tls' or 'rustls' feature");
+        unreachable!();
+    }
+
+    #[cfg(all(feature = "tls", not(feature = "rustls")))]
+    fn create_tls_connection(&self) -> Result<Stream> {
+        let conn = native_tls::TlsConnector::new()?;
+        let stream = TcpStream::connect((self.hostname.as_str(), self.port))?;
+        let stream = conn.connect(self.hostname.as_str(), stream)?;
+        Ok(Box::new(stream))
+    }
+
+    #[cfg(all(not(feature = "tls"), feature = "rustls"))]
+    fn create_tls_connection(&self) -> Result<Stream> {
+        use std::convert::TryInto;
+        use std::sync::Arc;
+        let mut root_store = rustls_crate::RootCertStore::empty();
+        root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(|ta| {
+            rustls_crate::OwnedTrustAnchor::from_subject_spki_name_constraints(
+                ta.subject,
+                ta.spki,
+                ta.name_constraints,
+            )
+        }));
+        let config = rustls_crate::ClientConfig::builder()
+            .with_safe_defaults()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
+        let session = rustls_crate::ClientConnection::new(
+            Arc::new(config),
+            self.hostname.as_str().try_into()?,
+        )?;
+        let stream = TcpStream::connect((self.hostname.as_str(), self.port))?;
+        let stream = rustls_crate::StreamOwned::new(session, stream);
+        Ok(Box::new(stream))
+    }
+
+    #[cfg(all(not(feature = "tls"), not(feature = "rustls")))]
+    fn create_tls_connection(&self) -> Result<Stream> {
+        panic!("TLS is not supported. Please enable 'tls' feature")
     }
 
     fn flush(&self) -> Result<()> {
@@ -58,8 +103,9 @@ impl AdvancedTcpStream {
             .stream
             .try_lock()
             .map_err(|_| Error::lock_stream_mutex())?;
-        if let Some(stream) = stream.as_deref_mut() {
-            stream.flush()?;
+        if let Some(Err(err)) = stream.as_mut().map(|stream| stream.flush()) {
+            *stream = None;
+            return Err(err.into());
         }
         Ok(())
     }

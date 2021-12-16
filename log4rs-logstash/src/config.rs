@@ -10,7 +10,8 @@ struct AppenderDeserializer;
 
 #[derive(Debug, serde::Deserialize)]
 pub struct AppenderConfig {
-    level: Option<LogLevel>,
+    level: LogLevel,
+    ignore_buffer_level: Option<LogLevel>,
     hostname: String,
     port: u16,
     buffer_size: Option<usize>,
@@ -35,16 +36,28 @@ impl Deserialize for AppenderDeserializer {
         config: Self::Config,
         _deserializers: &Deserializers,
     ) -> AnyResult<Box<Self::Trait>> {
-        let appender = AppenderBuilder::default()
+        let mut builder = AppenderBuilder::default();
+        builder
             .with_level(config.level)
             .with_hostname(&config.hostname)
             .with_port(config.port)
-            .with_buffer_size(config.buffer_size)
-            .with_buffer_lifetime(config.buffer_lifetime)
-            .with_write_timeout(config.write_timeout)
-            .with_connection_timeout(config.connection_timeout)
-            .with_use_tls(config.use_tls.unwrap_or(false))
-            .build()?;
+            .with_use_tls(config.use_tls.unwrap_or(false));
+        if let Some(buffer_size) = config.buffer_size {
+            builder.with_buffer_size(buffer_size);
+        }
+        if let Some(buffer_lifetime) = config.buffer_lifetime {
+            builder.with_buffer_lifetime(buffer_lifetime);
+        }
+        if let Some(write_timeout) = config.write_timeout {
+            builder.with_write_timeout(write_timeout);
+        }
+        if let Some(connection_timeout) = config.connection_timeout {
+            builder.with_connection_timeout(connection_timeout);
+        }
+        if let Some(ignore_level) = config.ignore_buffer_level {
+            builder.with_ignore_buffer_level(ignore_level);
+        }
+        let appender = builder.build()?;
 
         Ok(Box::new(appender))
     }

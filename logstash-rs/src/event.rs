@@ -4,18 +4,32 @@ use serde::Serialize;
 use serde_json::Value;
 use std::{collections::HashMap, time::SystemTime};
 
-#[derive(Debug, Default, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct LogStashRecord {
     #[serde(rename = "@timestamp")]
     #[serde(with = "logstash_date_format")]
-    timestamp: Option<DateTime<Utc>>,
-    module: Option<String>,
-    file: Option<String>,
-    line: Option<u32>,
-    level: Option<Level>,
-    target: String,
+    pub timestamp: Option<DateTime<Utc>>,
+    pub module: Option<String>,
+    pub file: Option<String>,
+    pub line: Option<u32>,
+    pub level: Level,
+    pub target: String,
     #[serde(flatten)]
-    fields: HashMap<String, Value>,
+    pub fields: HashMap<String, Value>,
+}
+
+impl Default for LogStashRecord {
+    fn default() -> Self {
+        Self {
+            timestamp: Default::default(),
+            module: Default::default(),
+            file: Default::default(),
+            line: Default::default(),
+            level: Level::Warn,
+            target: Default::default(),
+            fields: Default::default(),
+        }
+    }
 }
 
 impl LogStashRecord {
@@ -37,7 +51,7 @@ impl LogStashRecord {
         event.module = record.module_path().map(|p| p.into());
         event.file = record.file().map(|p| p.into());
         event.line = record.line();
-        event.level = Some(meta.level());
+        event.level = meta.level();
         event.target = meta.target().into();
         event.add_data("message", record.args().to_string().into());
         event
