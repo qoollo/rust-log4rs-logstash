@@ -91,57 +91,70 @@ impl<S: Sender> BufferedSenderThread<S> {
     }
 
     fn run_thread(mut self, receiver: mpsc::Receiver<Command>) {
-        std::thread::spawn(move || loop {
-            let cmd = match self.deadline {
-                Some(deadline) => {
-                    receiver.recv_timeout(deadline.saturating_duration_since(Instant::now()))
-                }
-                None => receiver
-                    .recv()
-                    .map_err(|_| mpsc::RecvTimeoutError::Disconnected),
-            };
+        std::thread::spawn::<_, Result<()>>(move || {
+            {
+                loop {
+                    let cmd = match self.deadline {
+                        Some(deadline) => receiver
+                            .recv_timeout(deadline.saturating_duration_since(Instant::now())),
+                        None => receiver
+                            .recv()
+                            .map_err(|_| mpsc::RecvTimeoutError::Disconnected),
+                    };
 
-            if let Ok(Command::SendBatch(_) | Command::Send(_)) = &cmd {
-                self.deadline = self.next_deadline();
+                    if let Ok(Command::SendBatch(_) | Command::Send(_)) = &cmd {
+                        self.deadline = self.next_deadline();
+                    }
+                    match cmd {
+                        Ok(Command::Flush) | Err(mpsc::RecvTimeoutError::Timeout) => {
+                            self.flush()?
+                        }
+                        Ok(Command::Send(event)) => self.send(event)?,
+                        Ok(Command::SendBatch(events)) => self.send_batch(events)?,
+                        Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                    }
+                }
+                Ok(())
             }
-            match cmd {
-                Ok(Command::Flush) | Err(mpsc::RecvTimeoutError::Timeout) => self.flush(),
-                Ok(Command::Send(event)) => self.send(event),
-                Ok(Command::SendBatch(events)) => self.send_batch(events),
-                Err(mpsc::RecvTimeoutError::Disconnected) => break,
-            }
+            .map_err(|err| {
+                println!("fatal logger error: {}", err);
+                err
+            })
         });
     }
 
-    fn send(&mut self, event: LogStashRecord) {
+    fn send(&mut self, event: LogStashRecord) -> Result<()> {
         if event.level >= self.ignore_buffer {
-            let _ = self.sender.send(event);
+            self.sender.send(event)?;
         } else if let Some(max_size) = self.buffer_size {
             self.buffer.push(event);
             if self.buffer.len() >= max_size {
-                self.flush();
+                self.flush()?;
             }
         } else {
-            let _ = self.sender.send(event);
+            self.sender.send(event)?;
         }
+        Ok(())
     }
 
-    fn send_batch(&mut self, events: Vec<LogStashRecord>) {
+    fn send_batch(&mut self, events: Vec<LogStashRecord>) -> Result<()> {
         for event in events {
-            self.send(event);
+            self.send(event)?;
         }
+        Ok(())
     }
 
-    fn flush(&mut self) {
+    fn flush(&mut self) -> Result<()> {
         if !self.buffer.is_empty() {
             let buffer = std::mem::replace(
                 &mut self.buffer,
                 Vec::with_capacity(self.buffer_size.unwrap_or_default()),
             );
-            let _ = self.sender.send_batch(buffer);
+            self.sender.send_batch(buffer)?;
         }
-        let _ = self.sender.flush();
+        self.sender.flush()?;
         self.deadline = None;
+        Ok(())
     }
 }
 
