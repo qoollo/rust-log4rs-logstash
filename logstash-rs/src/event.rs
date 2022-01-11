@@ -33,11 +33,8 @@ impl Default for LogStashRecord {
 }
 
 impl LogStashRecord {
+    /// Initialize record with current time in `timestamp` field
     pub fn new() -> Self {
-        Default::default()
-    }
-
-    pub fn new_with_time_now() -> Self {
         Self {
             timestamp: Some(Utc::now()),
             ..Default::default()
@@ -45,7 +42,7 @@ impl LogStashRecord {
     }
 
     pub fn from_record(record: &log::Record) -> Self {
-        let mut event = LogStashRecord::new_with_time_now();
+        let mut event = LogStashRecord::new();
         let meta = record.metadata();
 
         event.module = record.module_path().map(|p| p.into());

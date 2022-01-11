@@ -20,9 +20,6 @@ pub struct AppenderConfig {
     buffer_lifetime: Option<Duration>,
     #[serde(default)]
     #[serde(with = "humantime_serde")]
-    write_timeout: Option<Duration>,
-    #[serde(default)]
-    #[serde(with = "humantime_serde")]
     connection_timeout: Option<Duration>,
     use_tls: Option<bool>,
 }
@@ -47,9 +44,6 @@ impl Deserialize for AppenderDeserializer {
         }
         if let Some(buffer_lifetime) = config.buffer_lifetime {
             builder.with_buffer_lifetime(buffer_lifetime);
-        }
-        if let Some(write_timeout) = config.write_timeout {
-            builder.with_write_timeout(write_timeout);
         }
         if let Some(connection_timeout) = config.connection_timeout {
             builder.with_connection_timeout(connection_timeout);

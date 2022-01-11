@@ -1,5 +1,7 @@
+#[macro_use]
+extern crate anyhow;
+
 pub mod buffer;
-pub mod error;
 pub mod event;
 pub mod output;
 pub use anyhow::Result;
@@ -15,5 +17,4 @@ pub trait Sender: Sync + Send + 'static {
 
 mod prelude {
     pub use super::*;
-    pub use crate::error::Error;
 }

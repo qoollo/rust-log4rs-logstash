@@ -31,23 +31,17 @@ impl BufferedSender {
 
 impl Sender for BufferedSender {
     fn send(&self, event: LogStashRecord) -> Result<()> {
-        self.sender
-            .send(Command::Send(event))
-            .map_err(|_| Error::send_to_channel("record"))?;
+        self.sender.send(Command::Send(event))?;
         Ok(())
     }
 
     fn send_batch(&self, events: Vec<LogStashRecord>) -> Result<()> {
-        self.sender
-            .send(Command::SendBatch(events))
-            .map_err(|_| Error::send_to_channel("batch"))?;
+        self.sender.send(Command::SendBatch(events))?;
         Ok(())
     }
 
     fn flush(&self) -> Result<()> {
-        self.sender
-            .send(Command::Flush)
-            .map_err(|_| Error::send_to_channel("flush command"))?;
+        self.sender.send(Command::Flush)?;
         Ok(())
     }
 }
@@ -89,7 +83,7 @@ impl<S: Sender> BufferedSenderThread<S> {
         sender
     }
 
-    fn find_next_deadline(&self) -> Option<Instant> {
+    fn next_deadline(&self) -> Option<Instant> {
         if self.buffer.is_empty() && self.buffer_size.is_some() {
             return self.buffer_lifetime.map(|lt| Instant::now() + lt);
         }
@@ -108,7 +102,7 @@ impl<S: Sender> BufferedSenderThread<S> {
             };
 
             if let Ok(Command::SendBatch(_) | Command::Send(_)) = &cmd {
-                self.deadline = self.find_next_deadline();
+                self.deadline = self.next_deadline();
             }
             match cmd {
                 Ok(Command::Flush) | Err(mpsc::RecvTimeoutError::Timeout) => self.flush(),

@@ -2,7 +2,9 @@ use crate::prelude::*;
 use std::fmt::Write as FMTWrite;
 use std::io::Write as IOWrite;
 use std::net::TcpStream;
+use std::net::ToSocketAddrs;
 use std::sync::Mutex;
+use std::time::Duration;
 
 type Stream = Box<dyn IOWrite + Sync + Send>;
 
@@ -11,23 +13,27 @@ pub(crate) struct AdvancedTcpStream {
     port: u16,
     use_tls: bool,
     stream: Mutex<Option<Stream>>,
+    connection_timeout: Option<Duration>,
 }
 
 impl AdvancedTcpStream {
-    pub(crate) fn new(hostname: String, port: u16, use_tls: bool) -> Self {
+    pub(crate) fn new(
+        hostname: String,
+        port: u16,
+        use_tls: bool,
+        connection_timeout: Option<Duration>,
+    ) -> Self {
         Self {
             hostname,
             port,
             use_tls,
             stream: Mutex::new(None),
+            connection_timeout,
         }
     }
 
     pub(crate) fn send_bytes(&self, bytes: &[u8]) -> Result<()> {
-        let mut stream = self
-            .stream
-            .try_lock()
-            .map_err(|_| Error::lock_stream_mutex())?;
+        let mut stream = self.stream.lock().map_err(|err| anyhow!(err.to_string()))?;
         self.recreate_stream_if_needed(&mut stream)?;
         if let Some(Err(err)) = stream.as_mut().map(|stream| stream.write_all(bytes)) {
             *stream = None;
@@ -39,7 +45,7 @@ impl AdvancedTcpStream {
     fn recreate_stream_if_needed(&self, stream: &mut Option<Stream>) -> Result<()> {
         if stream.is_none() {
             *stream = Some(if self.use_tls {
-                self.create_connection()?
+                Box::new(self.create_connection()?)
             } else {
                 self.create_tls_connection()?
             });
@@ -47,11 +53,17 @@ impl AdvancedTcpStream {
         Ok(())
     }
 
-    fn create_connection(&self) -> Result<Stream> {
-        Ok(Box::new(TcpStream::connect((
-            self.hostname.as_str(),
-            self.port,
-        ))?))
+    fn create_connection(&self) -> Result<TcpStream> {
+        let addr = (self.hostname.as_str(), self.port)
+            .to_socket_addrs()?
+            .next()
+            .ok_or_else(|| anyhow!("Failed to create socket address"))?;
+        let stream = if let Some(timeout) = self.connection_timeout {
+            TcpStream::connect_timeout(&addr, timeout)?
+        } else {
+            TcpStream::connect(addr)?
+        };
+        Ok(stream)
     }
 
     #[cfg(all(feature = "tls", feature = "rustls"))]
@@ -63,7 +75,7 @@ impl AdvancedTcpStream {
     #[cfg(all(feature = "tls", not(feature = "rustls")))]
     fn create_tls_connection(&self) -> Result<Stream> {
         let conn = native_tls::TlsConnector::new()?;
-        let stream = TcpStream::connect((self.hostname.as_str(), self.port))?;
+        let stream = self.create_connection()?;
         let stream = conn.connect(self.hostname.as_str(), stream)?;
         Ok(Box::new(stream))
     }
@@ -88,7 +100,7 @@ impl AdvancedTcpStream {
             Arc::new(config),
             self.hostname.as_str().try_into()?,
         )?;
-        let stream = TcpStream::connect((self.hostname.as_str(), self.port))?;
+        let stream = self.create_connection()?;
         let stream = rustls_crate::StreamOwned::new(session, stream);
         Ok(Box::new(stream))
     }
@@ -99,10 +111,7 @@ impl AdvancedTcpStream {
     }
 
     fn flush(&self) -> Result<()> {
-        let mut stream = self
-            .stream
-            .try_lock()
-            .map_err(|_| Error::lock_stream_mutex())?;
+        let mut stream = self.stream.lock().map_err(|err| anyhow!(err.to_string()))?;
         if let Some(Err(err)) = stream.as_mut().map(|stream| stream.flush()) {
             *stream = None;
             return Err(err.into());
@@ -116,9 +125,14 @@ pub struct TcpSender {
 }
 
 impl TcpSender {
-    pub fn new(hostname: String, port: u16, use_tls: bool) -> Self {
+    pub fn new(
+        hostname: String,
+        port: u16,
+        use_tls: bool,
+        connection_timeout: Option<Duration>,
+    ) -> Self {
         Self {
-            stream: AdvancedTcpStream::new(hostname, port, use_tls),
+            stream: AdvancedTcpStream::new(hostname, port, use_tls, connection_timeout),
         }
     }
 }

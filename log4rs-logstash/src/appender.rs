@@ -27,7 +27,6 @@ pub struct AppenderBuilder {
     port: u16,
     buffer_size: Option<usize>,
     buffer_lifetime: Option<Duration>,
-    write_timeout: Option<Duration>,
     connection_timeout: Option<Duration>,
     ignore_buffer: LogLevel,
     use_tls: bool,
@@ -41,7 +40,6 @@ impl Default for AppenderBuilder {
             port: 5044,
             buffer_size: Some(1024),
             buffer_lifetime: Some(Duration::from_secs(1)),
-            write_timeout: Some(Duration::from_secs(10)),
             connection_timeout: Some(Duration::from_secs(10)),
             use_tls: false,
             ignore_buffer: LogLevel::Error,
@@ -76,20 +74,19 @@ impl AppenderBuilder {
 
     /// Sets the upperbound limit on the number of records that can be placed in the buffer, once
     /// this size has been reached, the buffer will be sent to the remote server.
+    /// If buffer size is 0 or 1 then buffer is not used
     pub fn with_buffer_size(&mut self, buffer_size: usize) -> &mut AppenderBuilder {
-        self.buffer_size = Some(buffer_size);
+        if [0, 1].contains(&buffer_size) {
+            self.buffer_size = None;
+        } else {
+            self.buffer_size = Some(buffer_size);
+        }
         self
     }
 
     /// Sets the maximum lifetime of the buffer before send it to the remote server.
     pub fn with_buffer_lifetime(&mut self, buffer_duration: Duration) -> &mut AppenderBuilder {
         self.buffer_lifetime = Some(buffer_duration);
-        self
-    }
-
-    /// Sets the timemout for write operation.
-    pub fn with_write_timeout(&mut self, timeout: Duration) -> &mut AppenderBuilder {
-        self.write_timeout = Some(timeout);
         self
     }
 
@@ -109,7 +106,12 @@ impl AppenderBuilder {
     pub fn build(&self) -> AnyResult<Appender<BufferedSender>> {
         Ok(Appender {
             sender: BufferedSender::new(
-                TcpSender::new(self.hostname.clone(), self.port, self.use_tls),
+                TcpSender::new(
+                    self.hostname.clone(),
+                    self.port,
+                    self.use_tls,
+                    self.connection_timeout,
+                ),
                 self.buffer_size,
                 self.buffer_lifetime,
                 self.ignore_buffer,
