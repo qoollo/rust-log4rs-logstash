@@ -1,13 +1,13 @@
-#[macro_use]
-extern crate anyhow;
-
 pub mod buffer;
+pub mod error;
 pub mod event;
 pub mod output;
-pub use anyhow::Result;
 pub use buffer::BufferedSender;
+pub use error::Error;
 pub use event::LogStashRecord;
 pub use output::tcp::TcpSender;
+
+pub type Result<T> = core::result::Result<T, Error>;
 
 pub trait Sender: Sync + Send + 'static {
     fn send(&self, event: LogStashRecord) -> Result<()>;

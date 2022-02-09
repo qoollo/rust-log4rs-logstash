@@ -7,14 +7,11 @@ use logstash_rs::Sender;
 use logstash_rs::{BufferedSender, TcpSender};
 use std::time::Duration;
 
-pub struct Appender<S>
-where
-    S: Sender,
-{
+pub struct Appender<S> {
     sender: S,
 }
 
-impl<S: Sender> std::fmt::Debug for Appender<S> {
+impl<S> std::fmt::Debug for Appender<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}::Appender", module_path!())
     }
@@ -76,7 +73,7 @@ impl AppenderBuilder {
     /// this size has been reached, the buffer will be sent to the remote server.
     /// If buffer size is 0 or 1 then buffer is not used
     pub fn with_buffer_size(&mut self, buffer_size: usize) -> &mut AppenderBuilder {
-        if [0, 1].contains(&buffer_size) {
+        if buffer_size < 2 {
             self.buffer_size = None;
         } else {
             self.buffer_size = Some(buffer_size);
@@ -96,14 +93,14 @@ impl AppenderBuilder {
         self
     }
 
-    /// Sets the timeout for network connections.
+    /// Use tls connection.
     pub fn with_use_tls(&mut self, use_tls: bool) -> &mut AppenderBuilder {
         self.use_tls = use_tls;
         self
     }
 
     /// Invoke the builder and return a [`Appender`](struct.Appender.html).
-    pub fn build(&self) -> AnyResult<Appender<BufferedSender>> {
+    pub fn build(self) -> AnyResult<Appender<BufferedSender>> {
         Ok(Appender {
             sender: BufferedSender::new(
                 TcpSender::new(

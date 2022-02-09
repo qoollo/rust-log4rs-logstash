@@ -8,7 +8,7 @@ use std::{collections::HashMap, time::SystemTime};
 pub struct LogStashRecord {
     #[serde(rename = "@timestamp")]
     #[serde(with = "logstash_date_format")]
-    pub timestamp: Option<DateTime<Utc>>,
+    pub timestamp: DateTime<Utc>,
     pub module: Option<String>,
     pub file: Option<String>,
     pub line: Option<u32>,
@@ -21,7 +21,7 @@ pub struct LogStashRecord {
 impl Default for LogStashRecord {
     fn default() -> Self {
         Self {
-            timestamp: Default::default(),
+            timestamp: Utc::now(),
             module: Default::default(),
             file: Default::default(),
             line: Default::default(),
@@ -36,7 +36,7 @@ impl LogStashRecord {
     /// Initialize record with current time in `timestamp` field
     pub fn new() -> Self {
         Self {
-            timestamp: Some(Utc::now()),
+            timestamp: Utc::now(),
             ..Default::default()
         }
     }
@@ -54,8 +54,8 @@ impl LogStashRecord {
         event
     }
 
-    pub fn set_timestamp(&mut self, timestamp: Option<SystemTime>) -> &mut Self {
-        self.timestamp = timestamp.map(|t| t.into());
+    pub fn set_timestamp(&mut self, timestamp: SystemTime) -> &mut Self {
+        self.timestamp = timestamp.into();
         self
     }
 
@@ -74,15 +74,11 @@ mod logstash_date_format {
     use chrono::{DateTime, Utc};
     use serde::{self, Serializer};
 
-    pub fn serialize<S>(date: &Option<DateTime<Utc>>, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(date: &DateTime<Utc>, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        if let Some(date) = date {
-            let s = date.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
-            serializer.serialize_str(&s)
-        } else {
-            serializer.serialize_none()
-        }
+        let s = date.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        serializer.serialize_str(&s)
     }
 }

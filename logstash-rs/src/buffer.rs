@@ -6,7 +6,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-enum Command {
+#[derive(Debug, Clone)]
+pub(crate) enum Command {
     Send(LogStashRecord),
     SendBatch(Vec<LogStashRecord>),
     Flush,
@@ -63,10 +64,6 @@ impl<S: Sender> BufferedSenderThread<S> {
         buffer_lifetime: Option<Duration>,
         ignore_buffer: Level,
     ) -> Self {
-        let buffer_size = match buffer_size {
-            Some(s) if s < 2 => None,
-            x => x,
-        };
         Self {
             sender,
             buffer: Vec::with_capacity(buffer_size.unwrap_or(0)),
@@ -105,14 +102,24 @@ impl<S: Sender> BufferedSenderThread<S> {
                     if let Ok(Command::SendBatch(_) | Command::Send(_)) = &cmd {
                         self.deadline = self.next_deadline();
                     }
-                    match cmd {
-                        Ok(Command::Flush) | Err(mpsc::RecvTimeoutError::Timeout) => {
-                            self.flush()?
-                        }
-                        Ok(Command::Send(event)) => self.send(event)?,
-                        Ok(Command::SendBatch(events)) => self.send_batch(events)?,
+                    let _ = match cmd {
+                        Ok(Command::Flush) | Err(mpsc::RecvTimeoutError::Timeout) => self.flush(),
+                        Ok(Command::Send(event)) => self.send(event),
+                        Ok(Command::SendBatch(events)) => self.send_batch(events),
                         Err(mpsc::RecvTimeoutError::Disconnected) => break,
                     }
+                    .or_else(|err| {
+                        println!("logstash logger error: {}", err);
+                        let is_fatal = match err {
+                            Error::FatalInternal(..) | Error::SenderThreadStopped(..) => true,
+                            _ => false,
+                        };
+                        if is_fatal {
+                            Result::Err(err)
+                        } else {
+                            Result::Ok(())
+                        }
+                    })?;
                 }
                 Ok(())
             }

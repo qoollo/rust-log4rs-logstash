@@ -33,37 +33,54 @@ impl AdvancedTcpStream {
     }
 
     pub(crate) fn send_bytes(&self, bytes: &[u8]) -> Result<()> {
-        let mut stream = self.stream.lock().map_err(|err| anyhow!(err.to_string()))?;
-        self.recreate_stream_if_needed(&mut stream)?;
-        if let Some(Err(err)) = stream.as_mut().map(|stream| stream.write_all(bytes)) {
-            *stream = None;
-            return Err(err.into());
+        let mut stream = self.stream.lock()?;
+        let should_repeat = self.send_bytes_inner(&mut stream, bytes)?;
+        if should_repeat {
+            self.send_bytes_inner(&mut stream, bytes)?;
         }
         Ok(())
     }
 
-    fn recreate_stream_if_needed(&self, stream: &mut Option<Stream>) -> Result<()> {
+    fn send_bytes_inner(&self, stream: &mut Option<Stream>, bytes: &[u8]) -> Result<bool> {
+        let recreated = self.recreate_stream_if_needed(stream)?;
+        if let Err(err) = stream.as_mut().expect("should be some").write_all(bytes) {
+            *stream = None;
+            if !recreated {
+                return Ok(true);
+            }
+            return Err(err.into());
+        }
+        Ok(false)
+    }
+
+    fn recreate_stream_if_needed(&self, stream: &mut Option<Stream>) -> Result<bool> {
         if stream.is_none() {
             *stream = Some(if self.use_tls {
-                Box::new(self.create_connection()?)
+                self.create_tcp_connection()?
             } else {
                 self.create_tls_connection()?
             });
+            Ok(true)
+        } else {
+            Ok(false)
         }
-        Ok(())
     }
 
     fn create_connection(&self) -> Result<TcpStream> {
         let addr = (self.hostname.as_str(), self.port)
             .to_socket_addrs()?
             .next()
-            .ok_or_else(|| anyhow!("Failed to create socket address"))?;
+            .ok_or_else(|| Error::AddressResolution(self.hostname.clone(), self.port))?;
         let stream = if let Some(timeout) = self.connection_timeout {
             TcpStream::connect_timeout(&addr, timeout)?
         } else {
             TcpStream::connect(addr)?
         };
         Ok(stream)
+    }
+
+    fn create_tcp_connection(&self) -> Result<Stream> {
+        Ok(Box::new(self.create_connection()?))
     }
 
     #[cfg(all(feature = "tls", feature = "rustls"))]
@@ -74,10 +91,19 @@ impl AdvancedTcpStream {
 
     #[cfg(all(feature = "tls", not(feature = "rustls")))]
     fn create_tls_connection(&self) -> Result<Stream> {
+        use native_tls::HandshakeError;
         let conn = native_tls::TlsConnector::new()?;
         let stream = self.create_connection()?;
-        let stream = conn.connect(self.hostname.as_str(), stream)?;
-        Ok(Box::new(stream))
+        let mut stream = conn.connect(self.hostname.as_str(), stream);
+        while let Err(err) = stream {
+            match err {
+                HandshakeError::Failure(err) => return Err(err.into()),
+                HandshakeError::WouldBlock(block) => {
+                    stream = block.handshake();
+                }
+            }
+        }
+        Ok(Box::new(stream.expect("handshake completed")))
     }
 
     #[cfg(all(not(feature = "tls"), feature = "rustls"))]
@@ -111,10 +137,10 @@ impl AdvancedTcpStream {
     }
 
     fn flush(&self) -> Result<()> {
-        let mut stream = self.stream.lock().map_err(|err| anyhow!(err.to_string()))?;
-        if let Some(Err(err)) = stream.as_mut().map(|stream| stream.flush()) {
-            *stream = None;
-            return Err(err.into());
+        let mut stream = self.stream.lock()?;
+        let recreated = self.recreate_stream_if_needed(&mut stream)?;
+        if !recreated {
+            stream.as_mut().expect("should be some").flush()?;
         }
         Ok(())
     }
