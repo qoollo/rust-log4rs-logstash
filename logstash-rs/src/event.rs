@@ -12,6 +12,7 @@ pub struct LogStashRecord {
     pub module: Option<String>,
     pub file: Option<String>,
     pub line: Option<u32>,
+    #[serde(with = "level_serializer")]
     pub level: Level,
     pub target: String,
     #[serde(flatten)]
@@ -80,5 +81,17 @@ mod logstash_date_format {
     {
         let s = date.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
         serializer.serialize_str(&s)
+    }
+}
+
+mod level_serializer {
+    use log::Level;
+    use serde::{self, Serializer};
+
+    pub fn serialize<S>(level: &Level, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(level.as_str())
     }
 }
