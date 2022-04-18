@@ -32,8 +32,7 @@ impl BufferedSender {
 
 impl Sender for BufferedSender {
     fn send(&self, event: LogStashRecord) -> Result<()> {
-        self.sender.send(Command::Send(event))?;
-        Ok(())
+        self.sender.send(Command::Send(event)).map_err(From::from)
     }
 
     fn send_batch(&self, events: Vec<LogStashRecord>) -> Result<()> {
@@ -110,11 +109,10 @@ impl<S: Sender> BufferedSenderThread<S> {
                     }
                     .or_else(|err| {
                         println!("logstash logger error: {}", err);
-                        let is_fatal = match err {
-                            Error::FatalInternal(..) | Error::SenderThreadStopped(..) => true,
-                            _ => false,
-                        };
-                        if is_fatal {
+                        if matches!(
+                            err,
+                            Error::FatalInternal(..) | Error::SenderThreadStopped(..)
+                        ) {
                             Result::Err(err)
                         } else {
                             Result::Ok(())

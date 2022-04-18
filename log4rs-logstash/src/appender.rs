@@ -104,7 +104,7 @@ impl AppenderBuilder {
         Ok(Appender {
             sender: BufferedSender::new(
                 TcpSender::new(
-                    self.hostname.clone(),
+                    self.hostname,
                     self.port,
                     self.use_tls,
                     self.connection_timeout,
