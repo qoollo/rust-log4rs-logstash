@@ -1,0 +1,24 @@
+[package]
+name = "log4rs-logstash"
+version = "0.1.0"
+description = "Logstash appender for log4rs"
+repository = "https://github.com/qoollo/rust-log4rs-logstash"
+homepage = "https://github.com/qoollo/rust-log4rs-logstash"
+documentation = "https://docs.rs/log4rs-logstash"
+keywords = ["logstash", "appender", "log", "logger", "logging", "log4"]
+categories = ["development-tools::debugging"]
+license = "MIT"
+authors = ["Vladimir Stepanenko <vovac12@gmail.com>"]
+edition = "2018"
+readme = "README.md"
+
+[dependencies]
+log4rs = "1"
+log = "0.4"
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+logstash-rs = { path = "../logstash-rs" }
+humantime-serde = "1"
+
+[dev-dependencies]
+signal-hook = "0.3"
