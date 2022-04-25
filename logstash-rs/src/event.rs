@@ -69,6 +69,15 @@ impl LogStashRecord {
         self.fields.insert(key.into(), value);
         self
     }
+
+    pub fn with_data_from_map(mut self, extra_fields: &HashMap<String, Value>) -> Self {
+        self.fields.extend(
+            extra_fields
+                .iter()
+                .map(|(key, value)| (key.clone(), value.clone())),
+        );
+        self
+    }
 }
 
 mod logstash_date_format {

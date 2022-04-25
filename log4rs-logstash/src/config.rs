@@ -1,16 +1,17 @@
 use log4rs::append::Append;
 use log4rs::config::{Deserialize, Deserializers};
+use serde_json::Value;
 
 use crate::appender::AppenderBuilder;
 use anyhow::Result as AnyResult;
 use log::Level as LogLevel;
+use std::collections::HashMap;
 use std::time::Duration;
 
 struct AppenderDeserializer;
 
 #[derive(Debug, serde::Deserialize)]
 pub struct AppenderConfig {
-    level: LogLevel,
     ignore_buffer_level: Option<LogLevel>,
     hostname: String,
     port: u16,
@@ -22,6 +23,10 @@ pub struct AppenderConfig {
     #[serde(with = "humantime_serde")]
     connection_timeout: Option<Duration>,
     use_tls: Option<bool>,
+    #[serde(default)]
+    #[serde(with = "humantime_serde")]
+    error_period: Option<Duration>,
+    extra_fields: Option<HashMap<String, Value>>,
 }
 
 impl Deserialize for AppenderDeserializer {
@@ -35,7 +40,6 @@ impl Deserialize for AppenderDeserializer {
     ) -> AnyResult<Box<Self::Trait>> {
         let mut builder = AppenderBuilder::default();
         builder
-            .with_level(config.level)
             .with_hostname(&config.hostname)
             .with_port(config.port)
             .with_use_tls(config.use_tls.unwrap_or(false));
@@ -51,6 +55,10 @@ impl Deserialize for AppenderDeserializer {
         if let Some(ignore_level) = config.ignore_buffer_level {
             builder.with_ignore_buffer_level(ignore_level);
         }
+        if let Some(error_period) = config.error_period {
+            builder.with_error_period(error_period);
+        }
+        builder.with_extra_fields(config.extra_fields.unwrap_or_default());
         let appender = builder.build()?;
 
         Ok(Box::new(appender))

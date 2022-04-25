@@ -37,9 +37,16 @@ fn spawn_signal_handler() -> AnyResult<()> {
     let mut signals = Signals::new(&[SIGINT, SIGTERM])?;
 
     std::thread::spawn(move || {
+        let mut stop_in_progress = false;
         for _sig in signals.forever() {
-            log::logger().flush();
-            exit(0);
+            std::thread::spawn(move || {
+                log::logger().flush();
+                exit(0)
+            });
+            if stop_in_progress {
+                exit(1);
+            }
+            stop_in_progress = true;
         }
     });
     Ok(())

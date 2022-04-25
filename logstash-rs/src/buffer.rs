@@ -23,9 +23,16 @@ impl BufferedSender {
         buffer_size: Option<usize>,
         buffer_lifetime: Option<Duration>,
         ignore_buffer: Level,
+        error_period: Duration,
     ) -> Self {
-        let sender =
-            BufferedSenderThread::new(sender, buffer_size, buffer_lifetime, ignore_buffer).run();
+        let sender = BufferedSenderThread::new(
+            sender,
+            buffer_size,
+            buffer_lifetime,
+            ignore_buffer,
+            error_period,
+        )
+        .run();
         Self { sender }
     }
 }
@@ -54,6 +61,7 @@ struct BufferedSenderThread<S: Sender> {
     buffer_lifetime: Option<Duration>,
     deadline: Option<Instant>,
     ignore_buffer: Level,
+    error_period: Duration,
 }
 
 impl<S: Sender> BufferedSenderThread<S> {
@@ -62,6 +70,7 @@ impl<S: Sender> BufferedSenderThread<S> {
         buffer_size: Option<usize>,
         buffer_lifetime: Option<Duration>,
         ignore_buffer: Level,
+        error_period: Duration,
     ) -> Self {
         Self {
             sender,
@@ -70,6 +79,7 @@ impl<S: Sender> BufferedSenderThread<S> {
             buffer_lifetime,
             deadline: None,
             ignore_buffer,
+            error_period,
         }
     }
 
@@ -89,6 +99,7 @@ impl<S: Sender> BufferedSenderThread<S> {
     fn run_thread(mut self, receiver: mpsc::Receiver<Command>) {
         std::thread::spawn::<_, Result<()>>(move || {
             {
+                let mut last_error: Option<Instant> = None;
                 loop {
                     let cmd = match self.deadline {
                         Some(deadline) => receiver
@@ -108,7 +119,14 @@ impl<S: Sender> BufferedSenderThread<S> {
                         Err(mpsc::RecvTimeoutError::Disconnected) => break,
                     }
                     .or_else(|err| {
-                        println!("logstash logger error: {}", err);
+                        if last_error
+                            .as_ref()
+                            .map(|x| x.elapsed() > self.error_period)
+                            .unwrap_or(true)
+                        {
+                            println!("logstash logger error: {}", err);
+                            last_error = Some(Instant::now());
+                        }
                         if matches!(
                             err,
                             Error::FatalInternal(..) | Error::SenderThreadStopped(..)
