@@ -18,8 +18,10 @@ pub enum Error {
     AddressResolution(String, u16),
     #[error("fatal internal error: {0}")]
     FatalInternal(String),
+    #[cfg(all(not(feature = "tls"), feature = "rustls"))]
     #[error("rustls client: {0}")]
     InvalidDNSName(#[from] rustls_crate::client::InvalidDnsNameError),
+    #[cfg(all(not(feature = "tls"), feature = "rustls"))]
     #[error("rustls: {0}")]
     Rustls(#[from] rustls_crate::Error),
 }
