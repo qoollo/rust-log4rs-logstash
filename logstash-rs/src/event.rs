@@ -71,11 +71,13 @@ impl LogStashRecord {
     }
 
     pub fn with_data_from_map(mut self, extra_fields: &HashMap<String, Value>) -> Self {
-        self.fields.extend(
-            extra_fields
-                .iter()
-                .map(|(key, value)| (key.clone(), value.clone())),
-        );
+        if !extra_fields.is_empty() {
+            self.fields.extend(
+                extra_fields
+                    .iter()
+                    .map(|(key, value)| (key.clone(), value.clone())),
+            );
+        }
         self
     }
 }
