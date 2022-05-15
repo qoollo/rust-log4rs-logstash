@@ -6,10 +6,13 @@ appenders:
       pattern: "{d(%Y-%m-%d %H:%M:%S):<20} {M:>20.30}:{L:>3} {h({l})}    {m}\n"
   logstash:
     kind: logstash
-    hostname: localhost
-    port: 5055
+    hostname: 127.0.0.1
+    port: 5959
     buffer_size: 100
     buffer_lifetime: 1s
+    extra_fields:
+      node_id: 12
+      node_name: "node_12"
 root:
   level: debug
   appenders:

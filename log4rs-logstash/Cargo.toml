@@ -17,8 +17,9 @@ log4rs = "1"
 log = "0.4"
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }
-logstash-rs = { path = "../logstash-rs" }
+logstash-rs = { path = "../logstash-rs", features = ["rustls"] }
 humantime-serde = "1"
+serde_json = "1"
 
 [dev-dependencies]
 signal-hook = "0.3"

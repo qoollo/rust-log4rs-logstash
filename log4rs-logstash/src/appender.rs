@@ -5,10 +5,13 @@ use log4rs::append::Append;
 use logstash_rs::LogStashRecord;
 use logstash_rs::Sender;
 use logstash_rs::{BufferedSender, TcpSender};
+use serde_json::Value;
+use std::collections::HashMap;
 use std::time::Duration;
 
 pub struct Appender<S> {
     sender: S,
+    extra_fields: HashMap<String, Value>,
 }
 
 impl<S> std::fmt::Debug for Appender<S> {
@@ -19,7 +22,6 @@ impl<S> std::fmt::Debug for Appender<S> {
 
 #[derive(Debug)]
 pub struct AppenderBuilder {
-    level: LogLevel,
     hostname: String,
     port: u16,
     buffer_size: Option<usize>,
@@ -27,12 +29,13 @@ pub struct AppenderBuilder {
     connection_timeout: Option<Duration>,
     ignore_buffer: LogLevel,
     use_tls: bool,
+    error_period: Duration,
+    extra_fields: HashMap<String, Value>,
 }
 
 impl Default for AppenderBuilder {
     fn default() -> AppenderBuilder {
         AppenderBuilder {
-            level: LogLevel::Warn,
             hostname: "127.0.0.1".to_string(),
             port: 5044,
             buffer_size: Some(1024),
@@ -40,17 +43,13 @@ impl Default for AppenderBuilder {
             connection_timeout: Some(Duration::from_secs(10)),
             use_tls: false,
             ignore_buffer: LogLevel::Error,
+            error_period: Duration::from_secs(10),
+            extra_fields: Default::default(),
         }
     }
 }
 
 impl AppenderBuilder {
-    /// Sets threshold for this logger to level.
-    pub fn with_level(&mut self, level: LogLevel) -> &mut AppenderBuilder {
-        self.level = level;
-        self
-    }
-
     /// Sets threshold for this logger to level.
     pub fn with_ignore_buffer_level(&mut self, level: LogLevel) -> &mut AppenderBuilder {
         self.ignore_buffer = level;
@@ -99,6 +98,21 @@ impl AppenderBuilder {
         self
     }
 
+    /// Print period for internal logstash errors.
+    pub fn with_error_period(&mut self, error_period: Duration) -> &mut AppenderBuilder {
+        self.error_period = error_period;
+        self
+    }
+
+    /// Additional fields to send to logstash
+    pub fn with_extra_fields(
+        &mut self,
+        extra_fields: HashMap<String, Value>,
+    ) -> &mut AppenderBuilder {
+        self.extra_fields = extra_fields;
+        self
+    }
+
     /// Invoke the builder and return a [`Appender`](struct.Appender.html).
     pub fn build(self) -> AnyResult<Appender<BufferedSender>> {
         Ok(Appender {
@@ -112,7 +126,9 @@ impl AppenderBuilder {
                 self.buffer_size,
                 self.buffer_lifetime,
                 self.ignore_buffer,
+                self.error_period,
             ),
+            extra_fields: self.extra_fields,
         })
     }
 }
@@ -136,7 +152,8 @@ where
     S: Sender + Sync + Send + 'static,
 {
     fn append(&self, record: &Record) -> AnyResult<()> {
-        self.sender.send(LogStashRecord::from_record(record))?;
+        self.sender
+            .send(LogStashRecord::from_record(record).with_data_from_map(&self.extra_fields))?;
         Ok(())
     }
     fn flush(&self) {

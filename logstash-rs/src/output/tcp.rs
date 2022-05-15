@@ -56,9 +56,9 @@ impl AdvancedTcpStream {
     fn recreate_stream_if_needed(&self, stream: &mut Option<Stream>) -> Result<bool> {
         if stream.is_none() {
             *stream = Some(if self.use_tls {
-                self.create_tcp_connection()?
-            } else {
                 self.create_tls_connection()?
+            } else {
+                self.create_tcp_connection()?
             });
             Ok(true)
         } else {

@@ -18,6 +18,10 @@ pub enum Error {
     AddressResolution(String, u16),
     #[error("fatal internal error: {0}")]
     FatalInternal(String),
+    #[error("rustls client: {0}")]
+    InvalidDNSName(#[from] rustls_crate::client::InvalidDnsNameError),
+    #[error("rustls: {0}")]
+    Rustls(#[from] rustls_crate::Error),
 }
 
 impl<T> From<PoisonError<T>> for Error {
