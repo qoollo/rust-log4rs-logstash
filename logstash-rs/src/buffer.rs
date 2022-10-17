@@ -2,7 +2,7 @@ use log::Level;
 
 use crate::prelude::*;
 use std::{
-    sync::mpsc,
+    sync::mpsc::{self, TrySendError},
     time::{Duration, Instant},
 };
 
@@ -39,18 +39,26 @@ impl BufferedSender {
 
 impl Sender for BufferedSender {
     fn send(&self, event: LogStashRecord) -> Result<()> {
-        self.sender.send(Command::Send(event)).map_err(From::from)
+        let result = self.sender.try_send(Command::Send(event));
+        process_result(result)
     }
 
     fn send_batch(&self, events: Vec<LogStashRecord>) -> Result<()> {
-        self.sender.send(Command::SendBatch(events))?;
-        Ok(())
+        let result = self.sender.try_send(Command::SendBatch(events));
+        process_result(result)
     }
 
     fn flush(&self) -> Result<()> {
-        self.sender.send(Command::Flush)?;
-        Ok(())
+        let result = self.sender.try_send(Command::Flush);
+        process_result(result)
     }
+}
+
+fn process_result<T>(r: std::result::Result<(), TrySendError<T>>) -> Result<()> {
+    if matches!(r, Err(TrySendError::Disconnected(..))) {
+        return Err(Error::SenderThreadStopped(r.unwrap_err().to_string()));
+    }
+    Ok(())
 }
 
 #[derive(Debug)]

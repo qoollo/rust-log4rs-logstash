@@ -1,4 +1,3 @@
-use std::sync::mpsc::SendError;
 use std::sync::PoisonError;
 
 #[derive(Debug, thiserror::Error)]
@@ -29,11 +28,5 @@ pub enum Error {
 impl<T> From<PoisonError<T>> for Error {
     fn from(err: PoisonError<T>) -> Self {
         Self::FatalInternal(err.to_string())
-    }
-}
-
-impl<T> From<SendError<T>> for Error {
-    fn from(err: SendError<T>) -> Self {
-        Self::SenderThreadStopped(err.to_string())
     }
 }
