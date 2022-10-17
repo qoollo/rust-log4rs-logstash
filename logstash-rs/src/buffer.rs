@@ -6,6 +6,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+const LOG_MESSAGE_QUEUE_LEN: usize = 1000;
+
 #[derive(Debug, Clone)]
 pub(crate) enum Command {
     Send(LogStashRecord),
@@ -92,7 +94,7 @@ impl<S: Sender> BufferedSenderThread<S> {
     }
 
     fn run(self) -> mpsc::SyncSender<Command> {
-        let (sender, receiver) = mpsc::sync_channel(1);
+        let (sender, receiver) = mpsc::sync_channel(LOG_MESSAGE_QUEUE_LEN);
         self.run_thread(receiver);
         sender
     }
