@@ -57,13 +57,10 @@ impl Sender for BufferedSender {
     }
 }
 
-fn process_result<T>(
-    r: std::result::Result<(), TrySendError<T>>,
-    log_overflow: bool,
-) -> Result<()> {
+fn process_result<T>(r: std::result::Result<(), TrySendError<T>>, log_full: bool) -> Result<()> {
     if matches!(r, Err(TrySendError::Disconnected(..))) {
         return Err(Error::SenderThreadStopped(r.unwrap_err().to_string()));
-    } else if (log_overflow && matches!(r, Err(TrySendError::Full(..)))) {
+    } else if (log_full && matches!(r, Err(TrySendError::Full(..)))) {
         return Err(Error::BufferFull());
     }
     Ok(())
