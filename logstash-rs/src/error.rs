@@ -23,6 +23,8 @@ pub enum Error {
     #[cfg(all(not(feature = "tls"), feature = "rustls"))]
     #[error("rustls: {0}")]
     Rustls(#[from] rustls_crate::Error),
+    #[error("buffer is full")]
+    BufferFull(),
 }
 
 impl<T> From<PoisonError<T>> for Error {

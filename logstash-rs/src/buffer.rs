@@ -42,23 +42,29 @@ impl BufferedSender {
 impl Sender for BufferedSender {
     fn send(&self, event: LogStashRecord) -> Result<()> {
         let result = self.sender.try_send(Command::Send(event));
-        process_result(result)
+        process_result(result, event.level <= Level::Warn)
     }
 
     fn send_batch(&self, events: Vec<LogStashRecord>) -> Result<()> {
+        let important = events.iter().any(|e| e.level <= Level::Warn);
         let result = self.sender.try_send(Command::SendBatch(events));
-        process_result(result)
+        process_result(result, important)
     }
 
     fn flush(&self) -> Result<()> {
         let result = self.sender.try_send(Command::Flush);
-        process_result(result)
+        process_result(result, false)
     }
 }
 
-fn process_result<T>(r: std::result::Result<(), TrySendError<T>>) -> Result<()> {
+fn process_result<T>(
+    r: std::result::Result<(), TrySendError<T>>,
+    log_overflow: bool,
+) -> Result<()> {
     if matches!(r, Err(TrySendError::Disconnected(..))) {
         return Err(Error::SenderThreadStopped(r.unwrap_err().to_string()));
+    } else if (log_overflow && matches!(r, Err(TrySendError::Full(..)))) {
+        return Err(Error::BufferFull());
     }
     Ok(())
 }
