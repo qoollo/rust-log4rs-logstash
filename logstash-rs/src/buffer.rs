@@ -41,8 +41,9 @@ impl BufferedSender {
 
 impl Sender for BufferedSender {
     fn send(&self, event: LogStashRecord) -> Result<()> {
+        let important = event.level <= Level::Warn;
         let result = self.sender.try_send(Command::Send(event));
-        process_result(result, event.level <= Level::Warn)
+        process_result(result, important)
     }
 
     fn send_batch(&self, events: Vec<LogStashRecord>) -> Result<()> {
