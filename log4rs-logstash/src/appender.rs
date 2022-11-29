@@ -51,19 +51,19 @@ impl Default for AppenderBuilder {
 
 impl AppenderBuilder {
     /// Sets threshold for this logger to level.
-    pub fn with_ignore_buffer_level(&mut self, level: LogLevel) -> &mut AppenderBuilder {
+    pub fn with_ignore_buffer_level(mut self, level: LogLevel) -> AppenderBuilder {
         self.ignore_buffer = level;
         self
     }
 
     /// Sets the hostname of the remote server.
-    pub fn with_hostname(&mut self, hostname: impl Into<String>) -> &mut AppenderBuilder {
+    pub fn with_hostname(mut self, hostname: impl Into<String>) -> AppenderBuilder {
         self.hostname = hostname.into();
         self
     }
 
     /// Sets the port of the remote server.
-    pub fn with_port(&mut self, port: u16) -> &mut AppenderBuilder {
+    pub fn with_port(mut self, port: u16) -> AppenderBuilder {
         self.port = port;
         self
     }
@@ -71,7 +71,7 @@ impl AppenderBuilder {
     /// Sets the upperbound limit on the number of records that can be placed in the buffer, once
     /// this size has been reached, the buffer will be sent to the remote server.
     /// If buffer size is 0 or 1 then buffer is not used
-    pub fn with_buffer_size(&mut self, buffer_size: usize) -> &mut AppenderBuilder {
+    pub fn with_buffer_size(mut self, buffer_size: usize) -> AppenderBuilder {
         if buffer_size < 2 {
             self.buffer_size = None;
         } else {
@@ -81,34 +81,31 @@ impl AppenderBuilder {
     }
 
     /// Sets the maximum lifetime of the buffer before send it to the remote server.
-    pub fn with_buffer_lifetime(&mut self, buffer_duration: Duration) -> &mut AppenderBuilder {
+    pub fn with_buffer_lifetime(mut self, buffer_duration: Duration) -> AppenderBuilder {
         self.buffer_lifetime = Some(buffer_duration);
         self
     }
 
     /// Sets the timeout for network connections.
-    pub fn with_connection_timeout(&mut self, timeout: Duration) -> &mut AppenderBuilder {
+    pub fn with_connection_timeout(mut self, timeout: Duration) -> AppenderBuilder {
         self.connection_timeout = Some(timeout);
         self
     }
 
     /// Use tls connection.
-    pub fn with_use_tls(&mut self, use_tls: bool) -> &mut AppenderBuilder {
+    pub fn with_use_tls(mut self, use_tls: bool) -> AppenderBuilder {
         self.use_tls = use_tls;
         self
     }
 
     /// Print period for internal logstash errors.
-    pub fn with_error_period(&mut self, error_period: Duration) -> &mut AppenderBuilder {
+    pub fn with_error_period(mut self, error_period: Duration) -> AppenderBuilder {
         self.error_period = error_period;
         self
     }
 
     /// Additional fields to send to logstash
-    pub fn with_extra_fields(
-        &mut self,
-        extra_fields: HashMap<String, Value>,
-    ) -> &mut AppenderBuilder {
+    pub fn with_extra_fields(mut self, extra_fields: HashMap<String, Value>) -> AppenderBuilder {
         self.extra_fields = extra_fields;
         self
     }

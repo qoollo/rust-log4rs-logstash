@@ -39,26 +39,26 @@ impl Deserialize for AppenderDeserializer {
         _deserializers: &Deserializers,
     ) -> AnyResult<Box<Self::Trait>> {
         let mut builder = AppenderBuilder::default();
-        builder
+        builder = builder
             .with_hostname(&config.hostname)
             .with_port(config.port)
             .with_use_tls(config.use_tls.unwrap_or(false));
         if let Some(buffer_size) = config.buffer_size {
-            builder.with_buffer_size(buffer_size);
+            builder = builder.with_buffer_size(buffer_size);
         }
         if let Some(buffer_lifetime) = config.buffer_lifetime {
-            builder.with_buffer_lifetime(buffer_lifetime);
+            builder = builder.with_buffer_lifetime(buffer_lifetime);
         }
         if let Some(connection_timeout) = config.connection_timeout {
-            builder.with_connection_timeout(connection_timeout);
+            builder = builder.with_connection_timeout(connection_timeout);
         }
         if let Some(ignore_level) = config.ignore_buffer_level {
-            builder.with_ignore_buffer_level(ignore_level);
+            builder = builder.with_ignore_buffer_level(ignore_level);
         }
         if let Some(error_period) = config.error_period {
-            builder.with_error_period(error_period);
+            builder = builder.with_error_period(error_period);
         }
-        builder.with_extra_fields(config.extra_fields.unwrap_or_default());
+        builder = builder.with_extra_fields(config.extra_fields.unwrap_or_default());
         let appender = builder.build()?;
 
         Ok(Box::new(appender))
