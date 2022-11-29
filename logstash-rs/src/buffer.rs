@@ -2,9 +2,11 @@ use log::Level;
 
 use crate::prelude::*;
 use std::{
-    sync::mpsc,
+    sync::mpsc::{self, TrySendError},
     time::{Duration, Instant},
 };
+
+const LOG_MESSAGE_QUEUE_LEN: usize = 1000;
 
 #[derive(Debug, Clone)]
 pub(crate) enum Command {
@@ -39,17 +41,29 @@ impl BufferedSender {
 
 impl Sender for BufferedSender {
     fn send(&self, event: LogStashRecord) -> Result<()> {
-        self.sender.send(Command::Send(event)).map_err(From::from)
+        let result = self.sender.try_send(Command::Send(event));
+        process_result(result, event.level <= Level::Warn)
     }
 
     fn send_batch(&self, events: Vec<LogStashRecord>) -> Result<()> {
-        self.sender.send(Command::SendBatch(events))?;
-        Ok(())
+        let important = events.iter().any(|e| e.level <= Level::Warn);
+        let result = self.sender.try_send(Command::SendBatch(events));
+        process_result(result, important)
     }
 
     fn flush(&self) -> Result<()> {
-        self.sender.send(Command::Flush)?;
-        Ok(())
+        let result = self.sender.try_send(Command::Flush);
+        process_result(result, false)
+    }
+}
+
+fn process_result<T>(r: std::result::Result<(), TrySendError<T>>, log_full: bool) -> Result<()> {
+    match r {
+        Err(TrySendError::Disconnected(..)) => {
+            Err(Error::SenderThreadStopped(r.unwrap_err().to_string()))
+        }
+        Err(TrySendError::Full(..)) if log_full => Err(Error::BufferFull()),
+        _ => Ok(()),
     }
 }
 
@@ -84,7 +98,7 @@ impl<S: Sender> BufferedSenderThread<S> {
     }
 
     fn run(self) -> mpsc::SyncSender<Command> {
-        let (sender, receiver) = mpsc::sync_channel(1);
+        let (sender, receiver) = mpsc::sync_channel(LOG_MESSAGE_QUEUE_LEN);
         self.run_thread(receiver);
         sender
     }

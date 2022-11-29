@@ -1,4 +1,3 @@
-use std::sync::mpsc::SendError;
 use std::sync::PoisonError;
 
 #[derive(Debug, thiserror::Error)]
@@ -24,16 +23,12 @@ pub enum Error {
     #[cfg(all(not(feature = "tls"), feature = "rustls"))]
     #[error("rustls: {0}")]
     Rustls(#[from] rustls_crate::Error),
+    #[error("buffer is full")]
+    BufferFull(),
 }
 
 impl<T> From<PoisonError<T>> for Error {
     fn from(err: PoisonError<T>) -> Self {
         Self::FatalInternal(err.to_string())
-    }
-}
-
-impl<T> From<SendError<T>> for Error {
-    fn from(err: SendError<T>) -> Self {
-        Self::SenderThreadStopped(err.to_string())
     }
 }
