@@ -6,8 +6,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-const LOG_MESSAGE_QUEUE_LEN: usize = 1000;
-
 #[derive(Debug, Clone)]
 pub(crate) enum Command {
     Send(LogStashRecord),
@@ -26,6 +24,7 @@ impl BufferedSender {
         buffer_lifetime: Option<Duration>,
         ignore_buffer: Level,
         error_period: Duration,
+        log_queue_len: usize,
     ) -> Self {
         let sender = BufferedSenderThread::new(
             sender,
@@ -33,6 +32,7 @@ impl BufferedSender {
             buffer_lifetime,
             ignore_buffer,
             error_period,
+            log_queue_len,
         )
         .run();
         Self { sender }
@@ -77,6 +77,7 @@ struct BufferedSenderThread<S: Sender> {
     deadline: Option<Instant>,
     ignore_buffer: Level,
     error_period: Duration,
+    log_queue_len: usize,
 }
 
 impl<S: Sender> BufferedSenderThread<S> {
@@ -86,6 +87,7 @@ impl<S: Sender> BufferedSenderThread<S> {
         buffer_lifetime: Option<Duration>,
         ignore_buffer: Level,
         error_period: Duration,
+        log_queue_len: usize,
     ) -> Self {
         Self {
             sender,
@@ -95,11 +97,12 @@ impl<S: Sender> BufferedSenderThread<S> {
             deadline: None,
             ignore_buffer,
             error_period,
+            log_queue_len,
         }
     }
 
     fn run(self) -> mpsc::SyncSender<Command> {
-        let (sender, receiver) = mpsc::sync_channel(LOG_MESSAGE_QUEUE_LEN);
+        let (sender, receiver) = mpsc::sync_channel(self.log_queue_len);
         self.run_thread(receiver);
         sender
     }

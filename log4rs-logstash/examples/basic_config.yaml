@@ -9,6 +9,7 @@ appenders:
     hostname: 127.0.0.1
     port: 5959
     buffer_size: 100
+    log_queue_len: 1000
     buffer_lifetime: 1s
     extra_fields:
       node_id: 12
