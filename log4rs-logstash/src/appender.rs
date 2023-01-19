@@ -31,6 +31,7 @@ pub struct AppenderBuilder {
     use_tls: bool,
     error_period: Duration,
     extra_fields: HashMap<String, Value>,
+    log_queue_len: usize,
 }
 
 impl Default for AppenderBuilder {
@@ -38,13 +39,14 @@ impl Default for AppenderBuilder {
         AppenderBuilder {
             hostname: "127.0.0.1".to_string(),
             port: 5044,
-            buffer_size: Some(1024),
+            buffer_size: Some(100),
             buffer_lifetime: Some(Duration::from_secs(1)),
             connection_timeout: Some(Duration::from_secs(10)),
             use_tls: false,
             ignore_buffer: LogLevel::Error,
             error_period: Duration::from_secs(10),
             extra_fields: Default::default(),
+            log_queue_len: 1000,
         }
     }
 }
@@ -104,6 +106,12 @@ impl AppenderBuilder {
         self
     }
 
+    /// Maximum length of log message queue
+    pub fn with_log_queue_len(mut self, log_queue_len: usize) -> AppenderBuilder {
+        self.log_queue_len = log_queue_len;
+        self
+    }
+
     /// Additional fields to send to logstash
     pub fn with_extra_fields(mut self, extra_fields: HashMap<String, Value>) -> AppenderBuilder {
         self.extra_fields = extra_fields;
@@ -124,6 +132,7 @@ impl AppenderBuilder {
                 self.buffer_lifetime,
                 self.ignore_buffer,
                 self.error_period,
+                self.log_queue_len,
             ),
             extra_fields: self.extra_fields,
         })

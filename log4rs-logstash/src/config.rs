@@ -27,6 +27,7 @@ pub struct AppenderConfig {
     #[serde(with = "humantime_serde")]
     error_period: Option<Duration>,
     extra_fields: Option<HashMap<String, Value>>,
+    log_queue_len: Option<usize>,
 }
 
 impl Deserialize for AppenderDeserializer {
@@ -57,6 +58,9 @@ impl Deserialize for AppenderDeserializer {
         }
         if let Some(error_period) = config.error_period {
             builder = builder.with_error_period(error_period);
+        }
+        if let Some(log_queue_len) = config.log_queue_len {
+            builder = builder.with_log_queue_len(log_queue_len);
         }
         builder = builder.with_extra_fields(config.extra_fields.unwrap_or_default());
         let appender = builder.build()?;
