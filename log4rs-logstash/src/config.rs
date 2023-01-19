@@ -8,7 +8,16 @@ use log::Level as LogLevel;
 use std::collections::HashMap;
 use std::time::Duration;
 
-struct AppenderDeserializer;
+struct AppenderDeserializer {
+    extra_fields: Option<HashMap<String, Value>>
+}
+
+pub trait DeserializersExt {
+    /// Register logstash deserializer
+    fn with_logstash(self) -> Self;
+    /// Register logstash deserializer with additional extra fields
+    fn with_logstash_extra(self, extra_fields: HashMap<String, Value>) -> Self;
+}
 
 #[derive(Debug, serde::Deserialize)]
 pub struct AppenderConfig {
@@ -28,6 +37,22 @@ pub struct AppenderConfig {
     error_period: Option<Duration>,
     extra_fields: Option<HashMap<String, Value>>,
     log_queue_len: Option<usize>,
+}
+
+impl AppenderDeserializer {
+    fn new(extra_fields: Option<HashMap<String, Value>>) -> Self {
+        Self {
+            extra_fields
+        }
+    }
+}
+
+impl Default for AppenderDeserializer {
+    fn default() -> Self {
+        Self {
+            extra_fields: None
+        }
+    }
 }
 
 impl Deserialize for AppenderDeserializer {
@@ -62,15 +87,40 @@ impl Deserialize for AppenderDeserializer {
         if let Some(log_queue_len) = config.log_queue_len {
             builder = builder.with_log_queue_len(log_queue_len);
         }
-        builder = builder.with_extra_fields(config.extra_fields.unwrap_or_default());
+
+        let mut extra_fields = self.extra_fields.clone().unwrap_or_default();
+        if let Some(config_extra_fields) = config.extra_fields {
+            extra_fields.extend(config_extra_fields);   
+        }
+
+        builder = builder.with_extra_fields(extra_fields);
+
         let appender = builder.build()?;
 
         Ok(Box::new(appender))
     }
 }
 
+/// Returns default Deserializers extended with logstash appender
 pub fn deserializers() -> Deserializers {
     let mut d = Deserializers::default();
-    d.insert("logstash", AppenderDeserializer);
+    register_deserializer(&mut d, None);
     d
+}
+
+/// Register deserializer for logstash appender
+pub fn register_deserializer(deserializers: &mut Deserializers, extra_fields: Option<HashMap<String, Value>>) {
+    deserializers.insert("logstash", AppenderDeserializer::new(extra_fields));
+}
+
+impl DeserializersExt for Deserializers {
+    fn with_logstash(mut self) -> Self {
+        register_deserializer(&mut self, None);
+        self
+    }
+
+    fn with_logstash_extra(mut self, extra_fields: HashMap<String, Value>) -> Self {
+        register_deserializer(&mut self, Some(extra_fields));
+        self
+    }
 }
