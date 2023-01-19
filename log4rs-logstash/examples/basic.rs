@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use anyhow::Result as AnyResult;
 use log4rs::init_file;
+use log4rs_logstash::config::DeserializersExt; 
 use signal_hook::{
     consts::{SIGINT, SIGTERM},
     iterator::Signals,
@@ -28,7 +29,7 @@ fn main() -> AnyResult<()> {
 fn init_logger() -> AnyResult<()> {
     init_file(
         "log4rs-logstash/examples/basic_config.yaml",
-        log4rs_logstash::config::deserializers(),
+        log4rs::config::Deserializers::default().with_logstash(),
     )?;
     Ok(())
 }

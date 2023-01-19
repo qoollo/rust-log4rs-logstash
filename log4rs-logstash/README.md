@@ -6,11 +6,12 @@ This crate provides appender implementation for log4rs.
 
 ```rust
 use std::time::Duration;
+use log4rs_logstash::config::DeserializersExt; 
 
 fn main() {
     log4rs::init_file(
         "path_to_config.yaml",
-        log4rs_logstash::config::deserializers(),
+        log4rs::config::Deserializers::default().with_logstash(),
     ).unwrap();
     spawn_signal_handler().unwrap();
 
