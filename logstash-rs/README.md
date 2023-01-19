@@ -1,6 +1,7 @@
 # logstash-rs 
 
 TCP log sender for Logstash. 
+Previously published under the name 'logstash-rs'.
 
 # Get started
 
@@ -16,7 +17,7 @@ logstash-rs = { git = "https://github.com/qoollo/rust-log4rs-logstash" }
 
 Initialize logger
 ```rust
-use logstash_rs::{BufferedSender, TcpSender};
+use qoollo_logstash_rs::{BufferedSender, TcpSender};
 use std::time::Duration;
 
 fn main() {

@@ -1,5 +1,5 @@
 [package]
-name = "log4rs-logstash"
+name = "qoollo-log4rs-logstash"
 version = "0.1.1"
 description = "Logstash appender for log4rs"
 repository = "https://github.com/qoollo/rust-log4rs-logstash"
@@ -8,7 +8,7 @@ documentation = "https://docs.rs/log4rs-logstash"
 keywords = ["logstash", "appender", "log", "logger", "logging"]
 categories = ["development-tools::debugging"]
 license = "MIT"
-authors = ["Vladimir Stepanenko <vovac12@gmail.com>"]
+authors = ["Qoollo", "Vladimir Stepanenko <vovac12@gmail.com>"]
 edition = "2018"
 readme = "README.md"
 
@@ -17,7 +17,7 @@ log4rs = "1"
 log = "0.4"
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }
-logstash-rs = { version = "0.1.1", path = "../logstash-rs" }
+qoollo-logstash-rs = { version = "0.1.1", path = "../logstash-rs" }
 humantime-serde = "1"
 serde_json = "1"
 
@@ -25,5 +25,5 @@ serde_json = "1"
 signal-hook = "0.3"
 
 [features]
-tls = ["logstash-rs/tls"]
-rustls = ["logstash-rs/rustls"]
+tls = ["qoollo-logstash-rs/tls"]
+rustls = ["qoollo-logstash-rs/rustls"]

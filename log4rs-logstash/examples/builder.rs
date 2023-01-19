@@ -16,7 +16,7 @@ use signal_hook::{
 };
 
 fn main() -> AnyResult<()> {
-    let logstash = log4rs_logstash::appender::AppenderBuilder::default()
+    let logstash = qoollo_log4rs_logstash::appender::AppenderBuilder::default()
         .with_hostname("my-hostname")
         .with_port(5000)
         .with_buffer_size(100)
