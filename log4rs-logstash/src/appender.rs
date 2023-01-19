@@ -39,7 +39,7 @@ impl Default for AppenderBuilder {
         AppenderBuilder {
             hostname: "127.0.0.1".to_string(),
             port: 5044,
-            buffer_size: Some(1024),
+            buffer_size: Some(100),
             buffer_lifetime: Some(Duration::from_secs(1)),
             connection_timeout: Some(Duration::from_secs(10)),
             use_tls: false,
