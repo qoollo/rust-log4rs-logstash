@@ -1,12 +1,13 @@
 # Logstash appender for log4rs
 
 This crate provides appender implementation for log4rs.
+Previously published under the name 'log4rs-logstash'.
 
 # Get started
 
 ```rust
 use std::time::Duration;
-use log4rs_logstash::config::DeserializersExt; 
+use qoollo_log4rs_logstash::config::DeserializersExt; 
 
 fn main() {
     log4rs::init_file(

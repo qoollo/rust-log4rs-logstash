@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use anyhow::Result as AnyResult;
 use log4rs::init_file;
-use log4rs_logstash::config::DeserializersExt; 
+use qoollo_log4rs_logstash::config::DeserializersExt; 
 use signal_hook::{
     consts::{SIGINT, SIGTERM},
     iterator::Signals,
