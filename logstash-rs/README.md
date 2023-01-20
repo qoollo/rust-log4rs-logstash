@@ -1,18 +1,21 @@
-# logstash-rs 
+# Logstash log sender
+
+[![Crate Status](https://img.shields.io/crates/d/qoollo-logstash-rs)](https://crates.io/crates/qoollo-logstash-rs)
 
 TCP log sender for Logstash. 
-Previously published under the name 'logstash-rs'.
+
+Previously published under the name [`logstash-rs`](https://crates.io/crates/logstash-rs).
 
 # Get started
 
 Add dependency to your Cargo.toml
-```toml
-logstash-rs = 0.1.0
+```
+qoollo-logstash-rs = 0.2
 ```
 
 Or using upstream version from Github
 ```toml
-logstash-rs = { git = "https://github.com/qoollo/rust-log4rs-logstash" }
+qoollo-logstash-rs = { git = "https://github.com/qoollo/rust-log4rs-logstash" }
 ```
 
 Initialize logger

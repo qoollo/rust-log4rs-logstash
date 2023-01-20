@@ -1,7 +1,10 @@
 # Logstash appender for log4rs
 
+[![Crate Status](https://img.shields.io/crates/d/qoollo-log4rs-logstash)](https://crates.io/crates/qoollo-log4rs-logstash)
+
 This crate provides appender implementation for log4rs.
-Previously published under the name 'log4rs-logstash'.
+
+Previously published under the name [`log4rs-logstash`](https://crates.io/crates/log4rs-logstash).
 
 # Get started
 
