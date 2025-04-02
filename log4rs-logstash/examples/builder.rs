@@ -9,6 +9,8 @@ use log4rs::{
     config::{Appender, Root},
     init_config, Config,
 };
+
+#[cfg(not(windows))]
 use signal_hook::{
     consts::{SIGINT, SIGTERM},
     iterator::Signals,
@@ -30,6 +32,8 @@ fn main() -> AnyResult<()> {
             .build(LevelFilter::Warn),
     )?;
     init_config(config)?;
+
+    #[cfg(not(windows))]
     spawn_signal_handler()?;
 
     loop {
@@ -42,6 +46,7 @@ fn main() -> AnyResult<()> {
     }
 }
 
+#[cfg(not(windows))]
 fn spawn_signal_handler() -> AnyResult<()> {
     let mut signals = Signals::new(&[SIGINT, SIGTERM])?;
 
