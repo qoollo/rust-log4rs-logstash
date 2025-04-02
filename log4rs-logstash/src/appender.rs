@@ -2,6 +2,7 @@ use anyhow::Result as AnyResult;
 use log::Level as LogLevel;
 use log::Record;
 use log4rs::append::Append;
+use qoollo_logstash_rs::timestamp::TimePrecision;
 use qoollo_logstash_rs::LogStashRecord;
 use qoollo_logstash_rs::Sender;
 use qoollo_logstash_rs::{BufferedSender, TcpSender};
@@ -12,6 +13,40 @@ use std::time::Duration;
 pub struct Appender<S> {
     sender: S,
     extra_fields: HashMap<String, Value>,
+    time_precision: TimePrecision,
+}
+
+impl<S> Appender<S>
+where
+    S: Sender + Sync + Send + 'static,
+{
+    pub fn builder() -> AppenderBuilder {
+        AppenderBuilder::default()
+    }
+
+    fn try_flush(&self) -> AnyResult<()> {
+        self.sender.flush()?;
+        Ok(())
+    }
+}
+
+impl<S> Append for Appender<S>
+where
+    S: Sender + Sync + Send + 'static,
+{
+    fn append(&self, record: &Record) -> AnyResult<()> {
+        self.sender.send(
+            LogStashRecord::from_record(record)
+                .with_data_from_map(&self.extra_fields)
+                .set_time_precision(self.time_precision),
+        )?;
+        Ok(())
+    }
+    fn flush(&self) {
+        if let Err(err) = self.try_flush() {
+            eprintln!("Logstash appender failed to flush: {}", err);
+        }
+    }
 }
 
 impl<S> std::fmt::Debug for Appender<S> {
@@ -32,6 +67,7 @@ pub struct AppenderBuilder {
     error_period: Duration,
     extra_fields: HashMap<String, Value>,
     log_queue_len: usize,
+    timestamp_precision: TimePrecision,
 }
 
 impl Default for AppenderBuilder {
@@ -47,6 +83,7 @@ impl Default for AppenderBuilder {
             error_period: Duration::from_secs(10),
             extra_fields: Default::default(),
             log_queue_len: 1000,
+            timestamp_precision: TimePrecision::Millis,
         }
     }
 }
@@ -112,6 +149,12 @@ impl AppenderBuilder {
         self
     }
 
+    /// Maximum length of log message queue
+    pub fn with_timestamp_precision(mut self, precision: TimePrecision) -> AppenderBuilder {
+        self.timestamp_precision = precision;
+        self
+    }
+
     /// Additional fields to send to logstash
     pub fn with_extra_fields(mut self, extra_fields: HashMap<String, Value>) -> AppenderBuilder {
         self.extra_fields = extra_fields;
@@ -135,36 +178,7 @@ impl AppenderBuilder {
                 self.log_queue_len,
             ),
             extra_fields: self.extra_fields,
+            time_precision: self.timestamp_precision,
         })
-    }
-}
-
-impl<S> Appender<S>
-where
-    S: Sender + Sync + Send + 'static,
-{
-    pub fn builder() -> AppenderBuilder {
-        AppenderBuilder::default()
-    }
-
-    fn try_flush(&self) -> AnyResult<()> {
-        self.sender.flush()?;
-        Ok(())
-    }
-}
-
-impl<S> Append for Appender<S>
-where
-    S: Sender + Sync + Send + 'static,
-{
-    fn append(&self, record: &Record) -> AnyResult<()> {
-        self.sender
-            .send(LogStashRecord::from_record(record).with_data_from_map(&self.extra_fields))?;
-        Ok(())
-    }
-    fn flush(&self) {
-        if let Err(err) = self.try_flush() {
-            eprintln!("Logstash appender failed to flush: {}", err);
-        }
     }
 }
