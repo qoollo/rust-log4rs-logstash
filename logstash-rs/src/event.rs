@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use crate::timestamp::{TimePrecision, Timestamp};
 use log::Level;
 use serde::Serialize;
 use serde_json::Value;
@@ -7,8 +7,7 @@ use std::{collections::HashMap, time::SystemTime};
 #[derive(Debug, Clone, Serialize)]
 pub struct LogStashRecord {
     #[serde(rename = "@timestamp")]
-    #[serde(with = "logstash_date_format")]
-    pub timestamp: DateTime<Utc>,
+    pub timestamp: Timestamp,
     pub module: Option<String>,
     pub file: Option<String>,
     pub line: Option<u32>,
@@ -19,25 +18,11 @@ pub struct LogStashRecord {
     pub fields: HashMap<String, Value>,
 }
 
-impl Default for LogStashRecord {
-    fn default() -> Self {
-        Self {
-            timestamp: Utc::now(),
-            module: Default::default(),
-            file: Default::default(),
-            line: Default::default(),
-            level: Level::Warn,
-            target: Default::default(),
-            fields: Default::default(),
-        }
-    }
-}
-
 impl LogStashRecord {
     /// Initialize record with current time in `timestamp` field
     pub fn new() -> Self {
         Self {
-            timestamp: Utc::now(),
+            timestamp: Timestamp::now(),
             ..Default::default()
         }
     }
@@ -56,7 +41,7 @@ impl LogStashRecord {
     }
 
     pub fn set_timestamp(&mut self, timestamp: SystemTime) -> &mut Self {
-        self.timestamp = timestamp.into();
+        self.timestamp.set_date_time(timestamp.into());
         self
     }
 
@@ -80,18 +65,24 @@ impl LogStashRecord {
         }
         self
     }
+
+    pub fn set_time_precision(mut self, precision: TimePrecision) -> Self {
+        self.timestamp.set_precision(precision);
+        self
+    }
 }
 
-mod logstash_date_format {
-    use chrono::{DateTime, Utc};
-    use serde::{self, Serializer};
-
-    pub fn serialize<S>(date: &DateTime<Utc>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let s = date.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
-        serializer.serialize_str(&s)
+impl Default for LogStashRecord {
+    fn default() -> Self {
+        Self {
+            timestamp: Timestamp::now(),
+            level: Level::Warn,
+            module: Default::default(),
+            file: Default::default(),
+            line: Default::default(),
+            target: Default::default(),
+            fields: Default::default(),
+        }
     }
 }
 
