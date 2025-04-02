@@ -5,7 +5,9 @@ use std::time::Duration;
 
 use anyhow::Result as AnyResult;
 use log4rs::init_file;
-use qoollo_log4rs_logstash::config::DeserializersExt; 
+use qoollo_log4rs_logstash::config::DeserializersExt;
+
+#[cfg(not(windows))]
 use signal_hook::{
     consts::{SIGINT, SIGTERM},
     iterator::Signals,
@@ -14,6 +16,8 @@ use signal_hook::{
 
 fn main() -> AnyResult<()> {
     init_logger()?;
+
+    #[cfg(not(windows))]
     spawn_signal_handler()?;
 
     loop {
@@ -34,6 +38,7 @@ fn init_logger() -> AnyResult<()> {
     Ok(())
 }
 
+#[cfg(not(windows))]
 fn spawn_signal_handler() -> AnyResult<()> {
     let mut signals = Signals::new(&[SIGINT, SIGTERM])?;
 

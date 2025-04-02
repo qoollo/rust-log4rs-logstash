@@ -5,11 +5,13 @@ use serde_json::Value;
 use crate::appender::AppenderBuilder;
 use anyhow::Result as AnyResult;
 use log::Level as LogLevel;
+use qoollo_logstash_rs::timestamp::TimePrecision;
 use std::collections::HashMap;
 use std::time::Duration;
 
+#[derive(Default)]
 struct AppenderDeserializer {
-    extra_fields: Option<HashMap<String, Value>>
+    extra_fields: Option<HashMap<String, Value>>,
 }
 
 pub trait DeserializersExt {
@@ -37,21 +39,12 @@ pub struct AppenderConfig {
     error_period: Option<Duration>,
     extra_fields: Option<HashMap<String, Value>>,
     log_queue_len: Option<usize>,
+    time_precision: Option<TimePrecision>,
 }
 
 impl AppenderDeserializer {
     fn new(extra_fields: Option<HashMap<String, Value>>) -> Self {
-        Self {
-            extra_fields
-        }
-    }
-}
-
-impl Default for AppenderDeserializer {
-    fn default() -> Self {
-        Self {
-            extra_fields: None
-        }
+        Self { extra_fields }
     }
 }
 
@@ -87,10 +80,13 @@ impl Deserialize for AppenderDeserializer {
         if let Some(log_queue_len) = config.log_queue_len {
             builder = builder.with_log_queue_len(log_queue_len);
         }
+        if let Some(precision) = config.time_precision {
+            builder = builder.with_timestamp_precision(precision);
+        }
 
         let mut extra_fields = self.extra_fields.clone().unwrap_or_default();
         if let Some(config_extra_fields) = config.extra_fields {
-            extra_fields.extend(config_extra_fields);   
+            extra_fields.extend(config_extra_fields);
         }
 
         builder = builder.with_extra_fields(extra_fields);
@@ -109,7 +105,10 @@ pub fn deserializers() -> Deserializers {
 }
 
 /// Register deserializer for logstash appender
-pub fn register_deserializer(deserializers: &mut Deserializers, extra_fields: Option<HashMap<String, Value>>) {
+pub fn register_deserializer(
+    deserializers: &mut Deserializers,
+    extra_fields: Option<HashMap<String, Value>>,
+) {
     deserializers.insert("logstash", AppenderDeserializer::new(extra_fields));
 }
 

@@ -2,6 +2,8 @@ pub mod buffer;
 pub mod error;
 pub mod event;
 pub mod output;
+pub mod timestamp;
+
 pub use buffer::BufferedSender;
 pub use error::Error;
 pub use event::LogStashRecord;

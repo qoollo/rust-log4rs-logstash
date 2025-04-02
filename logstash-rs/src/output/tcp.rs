@@ -178,7 +178,7 @@ impl Sender for TcpSender {
         let mut buf = vec![];
         for event in events {
             serde_json::to_writer(&mut buf, &event)?;
-            buf.push('\n' as u8);
+            buf.push(b'\n');
         }
         self.stream.send_bytes(&buf)?;
         Ok(())
