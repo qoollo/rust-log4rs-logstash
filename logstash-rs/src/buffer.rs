@@ -130,7 +130,8 @@ impl<S: Sender> BufferedSenderThread<S> {
                     if let Ok(Command::SendBatch(_) | Command::Send(_)) = &cmd {
                         self.deadline = self.next_deadline();
                     }
-                    let _ = match cmd {
+
+                    match cmd {
                         Ok(Command::Flush) | Err(mpsc::RecvTimeoutError::Timeout) => self.flush(),
                         Ok(Command::Send(event)) => self.send(event),
                         Ok(Command::SendBatch(events)) => self.send_batch(events),
