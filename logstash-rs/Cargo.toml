@@ -21,7 +21,7 @@ chrono = "0.4"
 thiserror = "1.0"
 native-tls = { version = "0.2", optional = true }
 rustls-crate = { package = "rustls", version = "0.20", optional = true }
-webpki-roots = { version = "0.22", optional = true }
+webpki-roots = { version = "1.0.10", optional = true }
 
 [features]
 default = []
